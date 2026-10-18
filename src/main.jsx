@@ -1,0 +1,1684 @@
+import React, { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { api, renew, logout, setAccessToken, setExpiredHandler } from "./api";
+import "./styles.css";
+
+const colors = [
+  "#0065ff",
+  "#0c7776",
+  "#6b4d9f",
+  "#b34c6a",
+  "#af6435",
+  "#485970",
+];
+const uid = () => crypto.randomUUID();
+function Icon({ name, size = 20 }) {
+  const paths = {
+    grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+    plus: "M12 5v14M5 12h14",
+    arrow: "M15 6l-6 6 6 6",
+    people:
+      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+    star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z",
+    archive: "M3 3h18v5H3z M5 8v13h14V8 M10 12h4",
+    close: "M6 6l12 12M6 18 18 6",
+    search: "M21 21l-6-6M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
+    lock: "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4",
+    card: "M3 4h18v16H3zM7 9h10M7 13h6",
+    check: "m5 12 4 4L19 6",
+    chevron: "m8 10 4 4 4-4",
+  };
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={paths[name] || paths.grid} />
+    </svg>
+  );
+}
+function Logo() {
+  return (
+    <span className="logo">
+      <span className="logo-mark">
+        <i />
+        <i />
+      </span>
+      Trello<span className="clone-label">CLONE</span>
+    </span>
+  );
+}
+function Modal({ title, children, onClose, wide = false }) {
+  const dialog = useRef(null);
+  useEffect(() => {
+    dialog.current.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      onCancel={onClose}
+      className={wide ? "modal wide" : "modal"}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          const r = e.currentTarget.getBoundingClientRect();
+          if (
+            e.clientX < r.left ||
+            e.clientX > r.right ||
+            e.clientY < r.top ||
+            e.clientY > r.bottom
+          )
+            onClose();
+        }
+      }}
+    >
+      <header>
+        <h2>{title}</h2>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Close dialog"
+          onClick={onClose}
+        >
+          <Icon name="close" />
+        </button>
+      </header>
+      {children}
+    </dialog>
+  );
+}
+function Field({ label, children }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+function Auth({ onLogin, initialMode }) {
+  const [mode, setMode] = useState(initialMode || "login");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    setBusy(true);
+    const values = Object.fromEntries(new FormData(e.currentTarget));
+    try {
+      if (mode === "forgot-password") {
+        const result = await api("/auth/forgot-password", {
+          method: "POST",
+          body: values,
+        });
+        setMessage(
+          result.message ||
+            "If the account exists, a reset link has been sent.",
+        );
+      } else if (mode === "reset-password") {
+        await api("/auth/reset-password", {
+          method: "POST",
+          body: {
+            token: new URLSearchParams(location.search).get("token"),
+            newPassword: values.password,
+          },
+        });
+        setMode("login");
+        setMessage("Password updated. Sign in with your new password.");
+        history.replaceState({}, "", "/");
+      } else {
+        const data = await api(`/auth/${mode}`, {
+          method: "POST",
+          body: values,
+        });
+        setAccessToken(data.accessToken);
+        onLogin(data.user);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const title = {
+    login: "Welcome back.",
+    register: "Make room for great work.",
+    "forgot-password": "Forgot your password?",
+    "reset-password": "A fresh start.",
+  }[mode];
+  return (
+    <div className="auth-page">
+      <div className="auth-brand">
+        <Logo />
+        <div className="auth-pitch">
+          <span className="eyebrow">A LITTLE MORE ORGANIZED</span>
+          <h1>
+            Big ideas.
+            <br />
+            Clear next steps.
+          </h1>
+          <p>
+            Bring your tasks, teammates, and plans together. One board at a
+            time.
+          </p>
+          <div className="board-illustration" aria-hidden="true">
+            {["To do", "Doing", "Done"].map((name, i) => (
+              <div key={name}>
+                <strong>{name}</strong>
+                {Array.from({ length: 3 - i }, (_, j) => (
+                  <span key={j}>
+                    <i
+                      style={{
+                        background: ["#b3d4ff", "#c0b6f2", "#b3dfd0"][i],
+                      }}
+                    />
+                    <b />
+                    <b />
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        <small>Less busywork. More possibility.</small>
+      </div>
+      <main className="auth-panel">
+        <div className="auth-form">
+          <span className="eyebrow">YOUR WORK, IN ONE PLACE</span>
+          <h2>{title}</h2>
+          <p>
+            {mode === "login"
+              ? "Log in to pick up where you left off."
+              : mode === "register"
+                ? "Create your account and start organizing."
+                : "Get back to the work that matters."}
+          </p>
+          <form onSubmit={submit}>
+            {mode === "register" && (
+              <Field label="Full name">
+                <input
+                  name="displayName"
+                  autoComplete="name"
+                  required
+                  maxLength={100}
+                  placeholder="Alex Morgan"
+                />
+              </Field>
+            )}
+            {mode !== "reset-password" && (
+              <Field label="Email address">
+                <input
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@example.com"
+                />
+              </Field>
+            )}
+            {!["forgot-password"].includes(mode) && (
+              <Field label="Password">
+                <input
+                  name="password"
+                  type="password"
+                  minLength={mode === "login" ? 1 : 12}
+                  maxLength={128}
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  required
+                  placeholder={
+                    mode === "register"
+                      ? "At least 12 characters"
+                      : "Enter your password"
+                  }
+                />
+              </Field>
+            )}
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {message && (
+              <p className="notice" role="status">
+                {message}
+              </p>
+            )}
+            <button className="primary full" disabled={busy}>
+              {busy
+                ? "Please wait..."
+                : {
+                    login: "Log in",
+                    register: "Create account",
+                    "forgot-password": "Send reset link",
+                    "reset-password": "Set new password",
+                  }[mode]}
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
+          <div className="auth-links">
+            {mode === "login" ? (
+              <>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setMode("forgot-password");
+                    setError("");
+                  }}
+                >
+                  Forgot password?
+                </button>
+                <span>
+                  New here?{" "}
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setMode("register");
+                      setError("");
+                    }}
+                  >
+                    Create an account
+                  </button>
+                </span>
+              </>
+            ) : (
+              <button
+                className="text-button"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                }}
+              >
+                Back to log in
+              </button>
+            )}
+          </div>
+          <p className="privacy-note">
+            <Icon name="lock" size={14} /> Your boards are private to your
+            workspace.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function App() {
+  const [user, setUser] = useState(null);
+  const [booting, setBooting] = useState(true);
+  const [workspaces, setWorkspaces] = useState([]);
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [boards, setBoards] = useState([]);
+  const [board, setBoard] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState("boards");
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [cardId, setCardId] = useState(null);
+  const [cardDraft, setCardDraft] = useState(null);
+  const [invitation, setInvitation] = useState(null);
+  const navigation = useRef(0);
+  const workspace = workspaces.find((w) => w.id === workspaceId);
+  useEffect(() => {
+    setExpiredHandler(() => {
+      setUser(null);
+      setBoard(null);
+      setWorkspaces([]);
+      setBoards([]);
+      setMembers([]);
+      setWorkspaceId("");
+      setModal(null);
+      setCardId(null);
+      setError("Your session expired. Please log in again.");
+    });
+    renew()
+      .then((data) => setUser(data.user))
+      .catch(() => {})
+      .finally(() => setBooting(false));
+  }, []);
+  useEffect(() => {
+    if (user) loadWorkspaces();
+  }, [user?.id]);
+  useEffect(() => {
+    if (workspaceId) {
+      setLoading(true);
+      Promise.all([
+        api(`/workspaces/${workspaceId}/boards`),
+        api(`/workspaces/${workspaceId}/members`),
+      ])
+        .then(([b, m]) => {
+          setBoards(b);
+          setMembers(m);
+        })
+        .catch((err) => setError(err.message))
+        .finally(() => setLoading(false));
+    }
+  }, [workspaceId]);
+  useEffect(() => {
+    const handler = () => {
+      if (user) routeFromUrl();
+    };
+    addEventListener("popstate", handler);
+    return () => removeEventListener("popstate", handler);
+  }, [user]);
+  async function loadWorkspaces() {
+    try {
+      const data = await api("/workspaces");
+      setWorkspaces(data);
+      setWorkspaceId((id) =>
+        data.some((w) => w.id === id) ? id : data[0]?.id || "",
+      );
+      await routeFromUrl();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+  async function routeFromUrl() {
+    const path = location.pathname.split("/").filter(Boolean);
+    if (path[0] === "cards" && path[1]) {
+      try {
+        const c = await api(`/cards/${path[1]}`);
+        await openBoard(c.boardId, false);
+        setCardId(c.id);
+        setCardDraft(c);
+      } catch (err) {
+        setError(err.message);
+      }
+    } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false);
+    else if (
+      path[0] === "invite" ||
+      new URLSearchParams(location.search).has("invite")
+    )
+      setModal("accept");
+    else {
+      setBoard(null);
+      setCardId(null);
+    }
+  }
+  async function openBoard(id, navigate = true) {
+    const serial = ++navigation.current;
+    setLoading(true);
+    setCardId(null);
+    try {
+      const b = await api(`/boards/${id}`);
+      if (serial !== navigation.current) return;
+      setBoard(b);
+      setWorkspaceId(b.workspaceId);
+      setArchiveOpen(false);
+      setSearch("");
+      if (navigate) history.pushState({}, "", `/boards/${id}`);
+      api(`/boards/${id}/preferences`, {
+        method: "PATCH",
+        body: { lastOpenedAt: true },
+      }).catch(() => {});
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      if (serial === navigation.current) setLoading(false);
+    }
+  }
+  async function refreshBoard() {
+    if (board) setBoard(await api(`/boards/${board.id}`));
+  }
+  async function refreshBoards() {
+    if (workspaceId) setBoards(await api(`/workspaces/${workspaceId}/boards`));
+  }
+  function goHome(id = workspaceId, nextView = "boards") {
+    navigation.current++;
+    setWorkspaceId(id);
+    setBoard(null);
+    setCardId(null);
+    setView(nextView);
+    setSearch("");
+    history.pushState({}, "", "/");
+  }
+  async function mutate(action) {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+      return true;
+    } catch (err) {
+      setError(
+        `${err.message} Your changes were not confirmed. Refresh before retrying.`,
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  function showCard(c) {
+    setCardId(c.id);
+    setCardDraft({ ...c });
+    history.pushState({}, "", `/cards/${c.id}`);
+  }
+  function closeCard() {
+    setCardId(null);
+    setCardDraft(null);
+    history.pushState({}, "", `/boards/${board.id}`);
+  }
+  async function patchBoard(body) {
+    await api(`/boards/${board.id}`, { method: "PATCH", body });
+    await refreshBoard();
+    await refreshBoards();
+  }
+  async function moveCard(id, listId, position) {
+    return mutate(async () => {
+      await api(`/cards/${id}/move`, {
+        method: "POST",
+        body: { listId, position },
+      });
+      await refreshBoard();
+    });
+  }
+  async function drop(e, list, position) {
+    e.preventDefault();
+    if (busy || board.closed) return;
+    try {
+      const item = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (item.type === "card") await moveCard(item.id, list.id, position);
+      else if (item.type === "list")
+        await mutate(async () => {
+          await api(`/lists/${item.id}/move`, {
+            method: "POST",
+            body: { position: visibleLists.findIndex((l) => l.id === list.id) },
+          });
+          await refreshBoard();
+        });
+    } catch (err) {
+      if (!(err instanceof SyntaxError)) setError(err.message);
+    }
+  }
+  if (booting)
+    return (
+      <div className="boot">
+        <Logo />
+        <p>Getting your workspace ready...</p>
+      </div>
+    );
+  if (!user)
+    return (
+      <Auth
+        onLogin={setUser}
+        initialMode={
+          location.pathname === "/reset-password" ? "reset-password" : undefined
+        }
+      />
+    );
+  const visibleLists = (board?.lists || [])
+    .filter((l) => !l.archived)
+    .sort((a, b) => a.position - b.position);
+  const visibleBoards = boards.filter(
+    (b) =>
+      (view === "closed" ? b.closed : !b.closed) &&
+      (view !== "starred" || b.favorite) &&
+      b.title.toLowerCase().includes(search.toLowerCase()),
+  );
+  return (
+    <div className="app">
+      <header className="topbar">
+        <button
+          className="brand-button"
+          onClick={() => goHome()}
+          aria-label="Go to boards"
+        >
+          <Logo />
+        </button>
+        <div className="topbar-links">
+          <button className="nav-link" onClick={() => goHome()}>
+            Workspaces <Icon name="chevron" size={14} />
+          </button>
+          <button
+            className="nav-link"
+            onClick={() => goHome(workspaceId, "starred")}
+          >
+            Starred
+          </button>
+        </div>
+        <button
+          className="primary compact"
+          onClick={() => setModal(workspaceId ? "board" : "workspace")}
+        >
+          Create <Icon name="plus" size={16} />
+        </button>
+        <div className="topbar-spacer" />
+        <span className="dev-badge">DEV WORKSPACE</span>
+        <button
+          className="avatar"
+          aria-label="Open profile"
+          onClick={() => setModal("profile")}
+        >
+          {user.displayName?.slice(0, 2).toUpperCase()}
+        </button>
+      </header>
+      <div className="app-body">
+        <aside className="sidebar">
+          <div className="workspace-switch">
+            <span className="workspace-avatar">
+              {workspace?.name?.[0]?.toUpperCase() || "T"}
+            </span>
+            <div>
+              <strong>{workspace?.name || "Your workspace"}</strong>
+              <span>Free workspace</span>
+            </div>
+          </div>
+          <div className="workspace-picker">
+            <label htmlFor="workspace-select" className="sr-only">
+              Select workspace
+            </label>
+            <select
+              id="workspace-select"
+              value={workspaceId}
+              onChange={(e) => goHome(e.target.value)}
+            >
+              <option value="" disabled>
+                Select workspace
+              </option>
+              {workspaces.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="icon-button"
+              aria-label="Create workspace"
+              onClick={() => setModal("workspace")}
+            >
+              <Icon name="plus" size={17} />
+            </button>
+          </div>
+          <nav>
+            <button
+              className={
+                !board && view === "boards"
+                  ? "sidebar-link active"
+                  : "sidebar-link"
+              }
+              onClick={() => goHome()}
+            >
+              <Icon name="grid" />
+              Boards
+            </button>
+            <button
+              className={
+                view === "members" && !board
+                  ? "sidebar-link active"
+                  : "sidebar-link"
+              }
+              onClick={() => goHome(workspaceId, "members")}
+            >
+              <Icon name="people" />
+              Members<span className="count">{members.length}</span>
+            </button>
+            <button
+              className={
+                view === "starred" && !board
+                  ? "sidebar-link active"
+                  : "sidebar-link"
+              }
+              onClick={() => goHome(workspaceId, "starred")}
+            >
+              <Icon name="star" />
+              Starred boards
+            </button>
+            <button
+              className={
+                view === "closed" && !board
+                  ? "sidebar-link active"
+                  : "sidebar-link"
+              }
+              onClick={() => goHome(workspaceId, "closed")}
+            >
+              <Icon name="archive" />
+              Closed boards
+            </button>
+          </nav>
+          <div className="sidebar-section">
+            <span>YOUR BOARDS</span>
+            {boards
+              .filter((b) => !b.closed)
+              .map((b) => (
+                <button
+                  key={b.id}
+                  className={`board-link ${board?.id === b.id ? "selected" : ""}`}
+                  onClick={() => openBoard(b.id)}
+                >
+                  <i style={{ background: b.color }} />
+                  <span>{b.title}</span>
+                  {b.favorite && <Icon name="star" size={13} />}
+                </button>
+              ))}
+          </div>
+          <div className="sidebar-footer">
+            <Icon name="lock" size={17} />
+            <p>
+              One workspace.
+              <br />
+              <strong>Endless possibilities.</strong>
+            </p>
+          </div>
+        </aside>
+        <main
+          className={`main ${board ? "board-main" : ""}`}
+          style={board ? { "--board-color": board.color } : {}}
+        >
+          {error && (
+            <div className="error-banner" role="alert">
+              <span>{error}</span>
+              <button
+                onClick={() =>
+                  mutate(async () => {
+                    if (board) await refreshBoard();
+                    else await refreshBoards();
+                  })
+                }
+              >
+                Refresh
+              </button>
+              <button
+                className="icon-button"
+                aria-label="Dismiss error"
+                onClick={() => setError("")}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          )}
+          {loading && (
+            <div className="loading-line" role="status" aria-label="Loading" />
+          )}
+          {board ? (
+            <>
+              <div className="board-toolbar">
+                <div className="board-title">
+                  <h1>{board.title}</h1>
+                  <button
+                    className={`icon-button ${board.favorite ? "is-starred" : ""}`}
+                    aria-label={board.favorite ? "Unstar board" : "Star board"}
+                    disabled={busy}
+                    onClick={() =>
+                      mutate(async () => {
+                        await api(`/boards/${board.id}/preferences`, {
+                          method: "PATCH",
+                          body: { favorite: !board.favorite },
+                        });
+                        await refreshBoard();
+                        await refreshBoards();
+                      })
+                    }
+                  >
+                    <Icon name="star" />
+                  </button>
+                  <span className="toolbar-divider" />
+                  <span className="private-label">
+                    <Icon name="lock" size={14} /> Workspace
+                  </span>
+                </div>
+                <div className="board-tools">
+                  <button
+                    className="glass-button"
+                    onClick={() => setModal("members")}
+                  >
+                    <Icon name="people" size={16} />
+                    Share
+                  </button>
+                  <button
+                    className="glass-button"
+                    onClick={() => setArchiveOpen(!archiveOpen)}
+                  >
+                    <Icon name="archive" size={16} />
+                    Archive
+                  </button>
+                  <button
+                    className="glass-button"
+                    onClick={() => setModal("board-settings")}
+                  >
+                    Settings
+                  </button>
+                </div>
+              </div>
+              {board.closed && (
+                <div className="closed-banner">
+                  This board is closed. Reopen it to make changes.
+                  <button
+                    disabled={busy}
+                    onClick={() => mutate(() => patchBoard({ closed: false }))}
+                  >
+                    Reopen board
+                  </button>
+                </div>
+              )}
+              <div className="board-subbar">
+                <span>
+                  <Icon name="grid" size={16} /> Board
+                </span>
+                <label className="board-search">
+                  <Icon name="search" size={16} />
+                  <input
+                    aria-label="Filter cards"
+                    placeholder="Filter cards"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="lists">
+                {visibleLists.map((list, index) => (
+                  <section
+                    className="list"
+                    key={list.id}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) =>
+                      drop(
+                        e,
+                        list,
+                        list.cards.filter((c) => !c.archived).length,
+                      )
+                    }
+                  >
+                    <header
+                      draggable={!board.closed && !busy}
+                      onDragStart={(e) =>
+                        e.dataTransfer.setData(
+                          "text/plain",
+                          JSON.stringify({ type: "list", id: list.id }),
+                        )
+                      }
+                    >
+                      <h2>{list.title}</h2>
+                      <span className="list-count">
+                        {list.cards.filter((c) => !c.archived).length}
+                      </span>
+                      <button
+                        className="icon-button"
+                        aria-label={`Edit list ${list.title}`}
+                        disabled={board.closed || busy}
+                        onClick={() =>
+                          setModal({ type: "list-settings", list, index })
+                        }
+                      >
+                        •••
+                      </button>
+                    </header>
+                    <div className="cards">
+                      {list.cards
+                        .filter(
+                          (c) =>
+                            !c.archived &&
+                            c.title
+                              .toLowerCase()
+                              .includes(search.toLowerCase()),
+                        )
+                        .sort((a, b) => a.position - b.position)
+                        .map((c) => (
+                          <button
+                            className="task-card"
+                            key={c.id}
+                            draggable={!board.closed && !busy}
+                            onDragStart={(e) => {
+                              e.stopPropagation();
+                              e.dataTransfer.setData(
+                                "text/plain",
+                                JSON.stringify({ type: "card", id: c.id }),
+                              );
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.stopPropagation();
+                              drop(
+                                e,
+                                list,
+                                list.cards
+                                  .filter((item) => !item.archived)
+                                  .sort((a, b) => a.position - b.position)
+                                  .findIndex((item) => item.id === c.id),
+                              );
+                            }}
+                            onClick={() => showCard(c)}
+                          >
+                            <span>{c.title}</span>
+                            {c.description && (
+                              <span className="card-meta">
+                                <Icon name="card" size={14} /> Description
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                    {!board.closed && (
+                      <AddItem
+                        key={`card-${list.id}`}
+                        label="Add a card"
+                        placeholder="What needs to be done?"
+                        busy={busy}
+                        onAdd={(title, id) =>
+                          mutate(async () => {
+                            await api(`/lists/${list.id}/cards`, {
+                              method: "POST",
+                              body: { title, id },
+                            });
+                            await refreshBoard();
+                            return true;
+                          })
+                        }
+                      />
+                    )}
+                  </section>
+                ))}
+                {!board.closed && (
+                  <div className="add-list">
+                    <AddItem
+                      label="Add another list"
+                      placeholder="Enter list title"
+                      busy={busy}
+                      onAdd={(title, id) =>
+                        mutate(async () => {
+                          await api(`/boards/${board.id}/lists`, {
+                            method: "POST",
+                            body: { title, id },
+                          });
+                          await refreshBoard();
+                        })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
+              {archiveOpen && (
+                <aside className="archive-panel">
+                  <header>
+                    <h2>Archived items</h2>
+                    <button
+                      className="icon-button"
+                      aria-label="Close archive"
+                      onClick={() => setArchiveOpen(false)}
+                    >
+                      <Icon name="close" />
+                    </button>
+                  </header>
+                  <p>Bring a list or card back to your board.</p>
+                  {board.lists
+                    .flatMap((l) => [
+                      ...(l.archived ? [{ ...l, type: "list" }] : []),
+                      ...l.cards
+                        .filter((c) => c.archived)
+                        .map((c) => ({ ...c, type: "card" })),
+                    ])
+                    .map((item) => (
+                      <div className="archive-item" key={item.id}>
+                        <span>
+                          <small>{item.type}</small>
+                          {item.title}
+                        </span>
+                        <button
+                          disabled={busy || board.closed}
+                          onClick={() =>
+                            mutate(async () => {
+                              await api(
+                                `/${item.type === "list" ? "lists" : "cards"}/${item.id}`,
+                                { method: "PATCH", body: { archived: false } },
+                              );
+                              await refreshBoard();
+                            })
+                          }
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                </aside>
+              )}
+            </>
+          ) : (
+            <div className="dashboard">
+              <div className="dashboard-heading">
+                <div>
+                  <span className="eyebrow">
+                    YOUR SPACE TO MAKE THINGS HAPPEN
+                  </span>
+                  <h1>
+                    {view === "members"
+                      ? "Better, together."
+                      : view === "starred"
+                        ? "Your favorites."
+                        : view === "closed"
+                          ? "Closed boards."
+                          : `Let's get organized.`}
+                  </h1>
+                  <p>
+                    {view === "members"
+                      ? "Good work starts with the right people."
+                      : "A clear view of everything you are working on."}
+                  </p>
+                </div>
+                {view !== "members" && workspaceId && (
+                  <button className="primary" onClick={() => setModal("board")}>
+                    <Icon name="plus" size={18} />
+                    Create board
+                  </button>
+                )}
+              </div>
+              {!workspaces.length ? (
+                <div className="welcome-empty">
+                  <span className="empty-icon">
+                    <Icon name="grid" size={32} />
+                  </span>
+                  <h2>A fresh workspace. A world of possibilities.</h2>
+                  <p>
+                    Create your first workspace to bring your ideas together.
+                  </p>
+                  <button
+                    className="primary"
+                    onClick={() => setModal("workspace")}
+                  >
+                    Create workspace
+                  </button>
+                </div>
+              ) : view === "members" ? (
+                <Members
+                  members={members}
+                  workspace={workspace}
+                  busy={busy}
+                  onInvite={() => setModal("members")}
+                  onRemove={(id) =>
+                    mutate(async () => {
+                      await api(`/workspaces/${workspaceId}/members/${id}`, {
+                        method: "DELETE",
+                      });
+                      setMembers(
+                        await api(`/workspaces/${workspaceId}/members`),
+                      );
+                    })
+                  }
+                />
+              ) : (
+                <>
+                  <div className="section-heading">
+                    <h2>
+                      <Icon name={view === "starred" ? "star" : "grid"} />
+                      {view === "closed"
+                        ? "Closed boards"
+                        : view === "starred"
+                          ? "Starred boards"
+                          : "Your boards"}
+                      <span>{visibleBoards.length}</span>
+                    </h2>
+                    <label className="search">
+                      <Icon name="search" size={17} />
+                      <input
+                        placeholder="Find a board"
+                        aria-label="Find a board"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <div className="board-grid">
+                    {visibleBoards.map((b) => (
+                      <button
+                        className="board-tile"
+                        key={b.id}
+                        onClick={() => openBoard(b.id)}
+                      >
+                        <div
+                          className="board-tile-cover"
+                          style={{ background: b.color }}
+                        >
+                          <div className="mini-board" aria-hidden="true">
+                            <i />
+                            <i />
+                            <i />
+                          </div>
+                          {b.favorite && (
+                            <span className="tile-star">
+                              <Icon name="star" size={17} />
+                            </span>
+                          )}
+                        </div>
+                        <div className="board-tile-info">
+                          <strong>{b.title}</strong>
+                          <span>
+                            <Icon name="lock" size={12} />
+                            Workspace board
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                    {view === "boards" && (
+                      <button
+                        className="new-board-tile"
+                        onClick={() => setModal("board")}
+                      >
+                        <span>
+                          <Icon name="plus" size={25} />
+                        </span>
+                        <strong>Create a new board</strong>
+                        <small>Start something great</small>
+                      </button>
+                    )}
+                  </div>
+                  {visibleBoards.length === 0 && view !== "boards" && (
+                    <div className="simple-empty">
+                      {search
+                        ? "No boards match your search."
+                        : view === "closed"
+                          ? "No closed boards. Everything is in play."
+                          : "Star a board to keep it close at hand."}
+                    </div>
+                  )}
+                  <div className="dashboard-tip">
+                    <span>
+                      <Icon name="check" size={20} />
+                    </span>
+                    <div>
+                      <strong>A little structure goes a long way.</strong>
+                      <p>
+                        Create lists for each stage, then move cards as work
+                        progresses.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+      {cardId && cardDraft && board && (
+        <Modal title="Card details" onClose={closeCard} wide>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              mutate(async () => {
+                await api(`/cards/${cardId}`, {
+                  method: "PATCH",
+                  body: {
+                    title: cardDraft.title,
+                    description: cardDraft.description,
+                  },
+                });
+                await refreshBoard();
+                closeCard();
+              });
+            }}
+          >
+            <p className="muted">
+              In {board.lists.find((l) => l.id === cardDraft.listId)?.title} ·{" "}
+              {board.title}
+            </p>
+            <Field label="Title">
+              <input
+                required
+                maxLength={200}
+                value={cardDraft.title}
+                disabled={board.closed}
+                onChange={(e) =>
+                  setCardDraft({ ...cardDraft, title: e.target.value })
+                }
+              />
+            </Field>
+            <Field label="Description">
+              <textarea
+                rows={6}
+                maxLength={10000}
+                placeholder="Add the details, context, or next steps..."
+                value={cardDraft.description || ""}
+                disabled={board.closed}
+                onChange={(e) =>
+                  setCardDraft({ ...cardDraft, description: e.target.value })
+                }
+              />
+            </Field>
+            <div className="form-actions">
+              <button className="primary" disabled={busy || board.closed}>
+                Save changes
+              </button>
+              <button
+                type="button"
+                disabled={busy || board.closed}
+                onClick={() =>
+                  mutate(async () => {
+                    await api(`/cards/${cardId}`, {
+                      method: "PATCH",
+                      body: { archived: !cardDraft.archived },
+                    });
+                    await refreshBoard();
+                    closeCard();
+                  })
+                }
+              >
+                {cardDraft.archived ? "Restore card" : "Archive card"}
+              </button>
+            </div>
+          </form>
+          <hr />
+          <h3>Move card</h3>
+          <form
+            className="move-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              moveCard(
+                cardId,
+                f.get("listId"),
+                Number(f.get("position")) - 1,
+              ).then((ok) => {
+                if (ok) closeCard();
+              });
+            }}
+          >
+            <Field label="List">
+              <select name="listId" defaultValue={cardDraft.listId}>
+                {visibleLists.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Position">
+              <input
+                name="position"
+                type="number"
+                min="1"
+                defaultValue={Math.max(
+                  1,
+                  (board.lists
+                    .find((l) => l.id === cardDraft.listId)
+                    ?.cards.filter((c) => !c.archived)
+                    .sort((a, b) => a.position - b.position)
+                    .findIndex((c) => c.id === cardDraft.id) ?? 0) + 1,
+                )}
+                required
+              />
+            </Field>
+            <button disabled={busy || board.closed || cardDraft.archived}>
+              Move
+            </button>
+          </form>
+          <button
+            className="text-button"
+            onClick={() => {
+              if (!navigator.clipboard) {
+                setError("Copy the card link from your browser address bar.");
+                return;
+              }
+              navigator.clipboard
+                .writeText(location.href)
+                .then(() => setError("Card link copied."))
+                .catch(() => setError("Copy the address from your browser."));
+            }}
+          >
+            Copy card link
+          </button>
+        </Modal>
+      )}
+      {modal && (
+        <Modal
+          title={
+            typeof modal === "object"
+              ? "List settings"
+              : {
+                  workspace: "Create a workspace",
+                  board: "Create a board",
+                  "board-settings": "Board settings",
+                  profile: "Your profile",
+                  members: "Invite a teammate",
+                  accept: "Join a workspace",
+                }[modal]
+          }
+          onClose={() => {
+            setModal(null);
+            setInvitation(null);
+          }}
+        >
+          {modal === "workspace" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = new FormData(e.currentTarget).get("name");
+                mutate(async () => {
+                  const w = await api("/workspaces", {
+                    method: "POST",
+                    body: { name },
+                  });
+                  setModal(null);
+                  await loadWorkspaces();
+                  goHome(w.id);
+                });
+              }}
+            >
+              <p className="muted">
+                A shared home for your boards and teammates.
+              </p>
+              <Field label="Workspace name">
+                <input
+                  autoFocus
+                  name="name"
+                  required
+                  maxLength={100}
+                  placeholder="e.g. Design studio"
+                />
+              </Field>
+              <button className="primary" disabled={busy}>
+                Create workspace
+              </button>
+            </form>
+          )}
+          {modal === "board" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const body = Object.fromEntries(new FormData(e.currentTarget));
+                mutate(async () => {
+                  const b = await api(`/workspaces/${workspaceId}/boards`, {
+                    method: "POST",
+                    body,
+                  });
+                  setModal(null);
+                  await refreshBoards();
+                  await openBoard(b.id);
+                });
+              }}
+            >
+              <Field label="Board title">
+                <input
+                  autoFocus
+                  name="title"
+                  required
+                  maxLength={100}
+                  placeholder="e.g. Product roadmap"
+                />
+              </Field>
+              <ColorPicker />
+              <p className="privacy-note">
+                <Icon name="lock" size={15} />
+                Visible to members of {workspace?.name}.
+              </p>
+              <button className="primary" disabled={busy}>
+                Create board
+              </button>
+            </form>
+          )}
+          {modal === "board-settings" && board && (
+            <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const body = Object.fromEntries(
+                    new FormData(e.currentTarget),
+                  );
+                  mutate(async () => {
+                    await patchBoard(body);
+                    setModal(null);
+                  });
+                }}
+              >
+                <Field label="Board title">
+                  <input
+                    name="title"
+                    defaultValue={board.title}
+                    required
+                    maxLength={100}
+                  />
+                </Field>
+                <ColorPicker initial={board.color} />
+                <button className="primary" disabled={busy || board.closed}>
+                  Save changes
+                </button>
+              </form>
+              <hr />
+              <button
+                disabled={busy}
+                onClick={() =>
+                  mutate(async () => {
+                    await patchBoard({ closed: !board.closed });
+                    setModal(null);
+                  })
+                }
+              >
+                {board.closed ? "Reopen board" : "Close board"}
+              </button>
+              <p className="muted">
+                Closed boards keep their content and can be reopened.
+              </p>
+            </>
+          )}
+          {typeof modal === "object" && (
+            <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  mutate(async () => {
+                    await api(`/lists/${modal.list.id}`, {
+                      method: "PATCH",
+                      body: { title: f.get("title") },
+                    });
+                    await api(`/lists/${modal.list.id}/move`, {
+                      method: "POST",
+                      body: { position: Number(f.get("position")) - 1 },
+                    });
+                    await refreshBoard();
+                    setModal(null);
+                  });
+                }}
+              >
+                <Field label="List title">
+                  <input
+                    name="title"
+                    defaultValue={modal.list.title}
+                    required
+                    maxLength={100}
+                  />
+                </Field>
+                <Field label="Position">
+                  <input
+                    name="position"
+                    type="number"
+                    min="1"
+                    max={visibleLists.length}
+                    defaultValue={modal.index + 1}
+                    required
+                  />
+                </Field>
+                <button className="primary" disabled={busy}>
+                  Save changes
+                </button>
+              </form>
+              <hr />
+              <button
+                disabled={busy}
+                onClick={() =>
+                  mutate(async () => {
+                    await api(`/lists/${modal.list.id}`, {
+                      method: "PATCH",
+                      body: { archived: true },
+                    });
+                    await refreshBoard();
+                    setModal(null);
+                  })
+                }
+              >
+                Archive list
+              </button>
+            </>
+          )}
+          {modal === "profile" && (
+            <>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const displayName = new FormData(e.currentTarget).get(
+                    "displayName",
+                  );
+                  mutate(async () => {
+                    setUser(
+                      await api("/me", {
+                        method: "PATCH",
+                        body: { displayName },
+                      }),
+                    );
+                    setModal(null);
+                  });
+                }}
+              >
+                <Field label="Display name">
+                  <input
+                    name="displayName"
+                    required
+                    maxLength={100}
+                    defaultValue={user.displayName}
+                  />
+                </Field>
+                <Field label="Email">
+                  <input value={user.email} readOnly />
+                </Field>
+                <button className="primary" disabled={busy}>
+                  Save profile
+                </button>
+              </form>
+              <hr />
+              <button
+                disabled={busy}
+                onClick={() =>
+                  mutate(async () => {
+                    await logout();
+                    setUser(null);
+                    setBoard(null);
+                    setWorkspaces([]);
+                    setBoards([]);
+                    setMembers([]);
+                    setWorkspaceId("");
+                    setModal(null);
+                    setCardId(null);
+                  })
+                }
+              >
+                Log out
+              </button>
+            </>
+          )}
+          {modal === "members" && (
+            <>
+              {workspace?.role === "owner" ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const email = new FormData(e.currentTarget).get("email");
+                    mutate(async () => {
+                      setInvitation(
+                        await api(`/workspaces/${workspaceId}/invitations`, {
+                          method: "POST",
+                          body: { email },
+                        }),
+                      );
+                    });
+                  }}
+                >
+                  <p className="muted">
+                    Invite someone to collaborate on all workspace boards.
+                  </p>
+                  <Field label="Email address">
+                    <input
+                      name="email"
+                      type="email"
+                      required
+                      placeholder="teammate@example.com"
+                    />
+                  </Field>
+                  <button className="primary" disabled={busy}>
+                    Create invitation
+                  </button>
+                  {invitation && (
+                    <div className="notice">
+                      <strong>Invitation ready</strong>
+                      <p>Share this link with {invitation.email}:</p>
+                      <input
+                        readOnly
+                        aria-label="Invitation link"
+                        value={`${location.origin}/invite?invite=${invitation.token}`}
+                      />
+                      <small>Only that signed-in email can accept.</small>
+                    </div>
+                  )}
+                </form>
+              ) : (
+                <p>Only workspace owners can invite people.</p>
+              )}
+              <Members members={members} workspace={workspace} />
+            </>
+          )}
+          {modal === "accept" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const token = new FormData(e.currentTarget).get("token");
+                mutate(async () => {
+                  const w = await api("/invitations/accept", {
+                    method: "POST",
+                    body: { token },
+                  });
+                  history.replaceState({}, "", "/");
+                  setModal(null);
+                  await loadWorkspaces();
+                  goHome(w.id);
+                });
+              }}
+            >
+              <p className="muted">
+                Signed in as {user.email}. Your email must match the invitation.
+              </p>
+              <Field label="Invitation token">
+                <input
+                  name="token"
+                  required
+                  defaultValue={
+                    new URLSearchParams(location.search).get("invite") || ""
+                  }
+                />
+              </Field>
+              <button className="primary" disabled={busy}>
+                Join workspace
+              </button>
+            </form>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {busy && (
+            <p className="muted" role="status">
+              Saving...
+            </p>
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}
+function ColorPicker({ initial = colors[0] }) {
+  return (
+    <fieldset className="color-picker">
+      <legend>Board color</legend>
+      {colors.map((color) => (
+        <label key={color} style={{ background: color }}>
+          <input
+            type="radio"
+            name="color"
+            value={color}
+            defaultChecked={initial === color}
+            aria-label={`Color ${color}`}
+          />
+          <span>
+            <Icon name="check" size={19} />
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+function Members({ members, workspace, busy, onInvite, onRemove }) {
+  return (
+    <div className="members">
+      <div className="section-heading">
+        <h2>Workspace members</h2>
+        {workspace?.role === "owner" && onInvite && (
+          <button className="primary" onClick={onInvite}>
+            Invite people
+          </button>
+        )}
+      </div>
+      {members.map((m) => (
+        <div className="member" key={m.id}>
+          <span className="avatar">
+            {m.displayName?.slice(0, 2).toUpperCase()}
+          </span>
+          <div>
+            <strong>{m.displayName}</strong>
+            <small>{m.email}</small>
+          </div>
+          <span className="role-badge">{m.role}</span>
+          {onRemove && workspace?.role === "owner" && m.role !== "owner" && (
+            <button disabled={busy} onClick={() => onRemove(m.id)}>
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+function AddItem({ label, placeholder, onAdd, busy }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [id, setId] = useState(uid);
+  if (!open)
+    return (
+      <button
+        className="add-item"
+        disabled={busy}
+        onClick={() => setOpen(true)}
+      >
+        <Icon name="plus" size={18} />
+        {label}
+      </button>
+    );
+  return (
+    <form
+      className="add-item-form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        const saved = await onAdd(title.trim(), id);
+        if (saved !== false) {
+          setTitle("");
+          setId(uid());
+        }
+      }}
+    >
+      <input
+        autoFocus
+        aria-label={placeholder}
+        required
+        maxLength={200}
+        placeholder={placeholder}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <div>
+        <button className="primary compact" disabled={busy}>
+          Add
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Cancel adding"
+          onClick={() => setOpen(false)}
+        >
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+    </form>
+  );
+}
+createRoot(document.getElementById("root")).render(<App />);
