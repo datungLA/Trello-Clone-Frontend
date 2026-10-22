@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, renew, logout, setAccessToken, setExpiredHandler } from "./api";
+import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer } from "./roadmap";
 import "./styles.css";
 
 const colors = [
@@ -324,8 +325,10 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [cardFilters, setCardFilters] = useState({labelIds: [], assigneeIds: [], due: ""});
   const [view, setView] = useState("boards");
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveDelete, setArchiveDelete] = useState(null);
   const [cardId, setCardId] = useState(null);
   const [cardDraft, setCardDraft] = useState(null);
   const [invitation, setInvitation] = useState(null);
@@ -418,6 +421,7 @@ function App() {
       setWorkspaceId(b.workspaceId);
       setArchiveOpen(false);
       setSearch("");
+      setCardFilters({labelIds: [], assigneeIds: [], due: ""});
       if (navigate) history.pushState({}, "", `/boards/${id}`);
       api(`/boards/${id}/preferences`, {
         method: "PATCH",
@@ -481,6 +485,9 @@ function App() {
         body: { listId, position },
       });
       await refreshBoard();
+      const target = board.lists.find(l => l.id === listId);
+      const active = target?.cards.filter(c => !c.archived && c.id !== id).length || 0;
+      if (target?.wipLimit && active + 1 > target.wipLimit) setError(`Move saved. ${target.title} is above its work-in-progress limit of ${target.wipLimit}.`);
     });
   }
   async function drop(e, list, position) {
@@ -513,7 +520,7 @@ function App() {
       <Auth
         onLogin={setUser}
         initialMode={
-          location.pathname === "/reset-password" ? "reset-password" : undefined
+          location.pathname === "/reset-password" ? "reset-password" : location.pathname === "/signup" ? "register" : undefined
         }
       />
     );
@@ -775,10 +782,11 @@ function App() {
                   />
                 </label>
               </div>
+              <BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/>
               <div className="lists">
                 {visibleLists.map((list, index) => (
                   <section
-                    className="list"
+                    className={`list ${list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit ? "over-limit" : ""}`}
                     key={list.id}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) =>
@@ -800,7 +808,7 @@ function App() {
                     >
                       <h2>{list.title}</h2>
                       <span className="list-count">
-                        {list.cards.filter((c) => !c.archived).length}
+                        {list.cards.filter((c) => !c.archived).length}{list.wipLimit ? ` / ${list.wipLimit}` : ""}
                       </span>
                       <button
                         className="icon-button"
@@ -813,14 +821,13 @@ function App() {
                         •••
                       </button>
                     </header>
+                    {list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit && <p className="wip-warning" role="status">Above work-in-progress limit</p>}
                     <div className="cards">
                       {list.cards
                         .filter(
                           (c) =>
                             !c.archived &&
-                            c.title
-                              .toLowerCase()
-                              .includes(search.toLowerCase()),
+                            matchesFilters(c, {...cardFilters, query: search}),
                         )
                         .sort((a, b) => a.position - b.position)
                         .map((c) => (
@@ -849,7 +856,7 @@ function App() {
                             }}
                             onClick={() => showCard(c)}
                           >
-                            <span>{c.title}</span>
+                            <CardBadges card={c} labels={board.labels || []} members={members}/>
                             {c.description && (
                               <span className="card-meta">
                                 <Icon name="card" size={14} /> Description
@@ -923,6 +930,7 @@ function App() {
                           <small>{item.type}</small>
                           {item.title}
                         </span>
+                        {item.type === "card" && <button onClick={() => showCard(item)}>Open</button>}
                         <button
                           disabled={busy || board.closed}
                           onClick={() =>
@@ -937,8 +945,11 @@ function App() {
                         >
                           Restore
                         </button>
+                        {item.type === "list" && <button className="danger" disabled={busy || board.closed} onClick={()=>setArchiveDelete(item.id)}>Delete</button>}
+                        {archiveDelete === item.id && <div className="confirm-box" role="alert"><p>Delete this archived list permanently? Archive every card inside first. This cannot be undone.</p><button className="danger" disabled={busy} onClick={()=>mutate(async()=>{await api(`/lists/${item.id}`,{method:"DELETE",body:{confirm:true}});setArchiveDelete(null);await refreshBoard();})}>Confirm deletion</button><button onClick={()=>setArchiveDelete(null)}>Cancel</button></div>}
                       </div>
                     ))}
+                  <p className="muted">Cards inside an archived list require restoring that list first. Permanent list deletion requires all its cards to be archived.</p>
                 </aside>
               )}
             </>
@@ -988,6 +999,7 @@ function App() {
                   </button>
                 </div>
               ) : view === "members" ? (
+                <>
                 <Members
                   members={members}
                   workspace={workspace}
@@ -1004,6 +1016,8 @@ function App() {
                     })
                   }
                 />
+                <OwnershipTransfer workspace={workspace} members={members} busy={busy} onTransfer={mutate} onTransferred={async()=>{await loadWorkspaces();setMembers(await api(`/workspaces/${workspaceId}/members`));}}/>
+                </>
               ) : (
                 <>
                   <div className="section-heading">
@@ -1099,136 +1113,7 @@ function App() {
       </div>
       {cardId && cardDraft && board && (
         <Modal title="Card details" onClose={closeCard} wide>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              mutate(async () => {
-                await api(`/cards/${cardId}`, {
-                  method: "PATCH",
-                  body: {
-                    title: cardDraft.title,
-                    description: cardDraft.description,
-                  },
-                });
-                await refreshBoard();
-                closeCard();
-              });
-            }}
-          >
-            <p className="muted">
-              In {board.lists.find((l) => l.id === cardDraft.listId)?.title} ·{" "}
-              {board.title}
-            </p>
-            <Field label="Title">
-              <input
-                required
-                maxLength={200}
-                value={cardDraft.title}
-                disabled={board.closed}
-                onChange={(e) =>
-                  setCardDraft({ ...cardDraft, title: e.target.value })
-                }
-              />
-            </Field>
-            <Field label="Description">
-              <textarea
-                rows={6}
-                maxLength={10000}
-                placeholder="Add the details, context, or next steps..."
-                value={cardDraft.description || ""}
-                disabled={board.closed}
-                onChange={(e) =>
-                  setCardDraft({ ...cardDraft, description: e.target.value })
-                }
-              />
-            </Field>
-            <div className="form-actions">
-              <button className="primary" disabled={busy || board.closed}>
-                Save changes
-              </button>
-              <button
-                type="button"
-                disabled={busy || board.closed}
-                onClick={() =>
-                  mutate(async () => {
-                    await api(`/cards/${cardId}`, {
-                      method: "PATCH",
-                      body: { archived: !cardDraft.archived },
-                    });
-                    await refreshBoard();
-                    closeCard();
-                  })
-                }
-              >
-                {cardDraft.archived ? "Restore card" : "Archive card"}
-              </button>
-            </div>
-          </form>
-          <hr />
-          <h3>Move card</h3>
-          <form
-            className="move-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              moveCard(
-                cardId,
-                f.get("listId"),
-                Number(f.get("position")) - 1,
-              ).then((ok) => {
-                if (ok) closeCard();
-              });
-            }}
-          >
-            <Field label="List">
-              <select name="listId" defaultValue={cardDraft.listId}>
-                {visibleLists.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Position">
-              <input
-                name="position"
-                type="number"
-                min="1"
-                defaultValue={Math.max(
-                  1,
-                  (board.lists
-                    .find((l) => l.id === cardDraft.listId)
-                    ?.cards.filter((c) => !c.archived)
-                    .sort((a, b) => a.position - b.position)
-                    .findIndex((c) => c.id === cardDraft.id) ?? 0) + 1,
-                )}
-                required
-              />
-            </Field>
-            <button disabled={busy || board.closed || cardDraft.archived}>
-              Move
-            </button>
-          </form>
-          <button
-            className="text-button"
-            onClick={() => {
-              if (!navigator.clipboard) {
-                setError("Copy the card link from your browser address bar.");
-                return;
-              }
-              navigator.clipboard
-                .writeText(location.href)
-                .then(() => setError("Card link copied."))
-                .catch(() => setError("Copy the address from your browser."));
-            }}
-          >
-            Copy card link
-          </button>
+          <CardEditor key={cardId} card={cardDraft} board={board} boards={boards.some(b=>b.id===board.id)?boards:[board,...boards]} members={members} user={user} onClose={closeCard} onRefresh={refreshBoard}/>
         </Modal>
       )}
       {modal && (
@@ -1360,6 +1245,7 @@ function App() {
               <p className="muted">
                 Closed boards keep their content and can be reopened.
               </p>
+              <button disabled={busy || board.closed} onClick={()=>mutate(async()=>{const copy=await api(`/boards/${board.id}/copy`,{method:"POST",body:{}});await refreshBoards();setModal(null);await openBoard(copy.id);})}>Copy board</button>
             </>
           )}
           {typeof modal === "object" && (
@@ -1371,7 +1257,7 @@ function App() {
                   mutate(async () => {
                     await api(`/lists/${modal.list.id}`, {
                       method: "PATCH",
-                      body: { title: f.get("title") },
+                      body: { title: f.get("title"), wipLimit: f.get("wipLimit") ? Number(f.get("wipLimit")) : null },
                     });
                     await api(`/lists/${modal.list.id}/move`, {
                       method: "POST",
@@ -1390,6 +1276,10 @@ function App() {
                     maxLength={100}
                   />
                 </Field>
+                <Field label="Work-in-progress limit (optional)">
+                  <input name="wipLimit" type="number" min="1" max="10000" defaultValue={modal.list.wipLimit || ""} placeholder="No limit"/>
+                </Field>
+                <p className="muted">Soft limit: moving over capacity shows a warning.</p>
                 <Field label="Position">
                   <input
                     name="position"
@@ -1420,6 +1310,7 @@ function App() {
               >
                 Archive list
               </button>
+              <button disabled={busy} onClick={() => mutate(async()=>{await api(`/lists/${modal.list.id}/copy`,{method:"POST",body:{}});await refreshBoard();setModal(null);})}>Copy list</button>
             </>
           )}
           {modal === "profile" && (

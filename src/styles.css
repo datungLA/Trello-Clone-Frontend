@@ -1453,3 +1453,85 @@ hr {
     animation: none !important;
   }
 }
+
+/* Task detail surfaces use static artwork and inexpensive transitions. */
+.editor-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.card-editor { font-size: 13px; }
+.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.detail-section { border-top: 1px solid #dfe3e8; padding-top: 20px; margin-top: 24px; }
+.detail-section > h3 { margin-bottom: 14px; }
+.detail-section summary, .filter-panel summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.detail-section summary:focus-visible, .filter-panel summary:focus-visible { outline: 2px solid #2684ff; outline-offset: 4px; }
+.detail-cover { height: 56px; border-radius: 6px; margin-bottom: 20px; }
+.selection-fieldset { border: 1px solid #dfe3e8; border-radius: 6px; padding: 10px 12px; margin: 0 0 17px; min-width: 0; max-height: 220px; overflow: auto; }
+.selection-fieldset legend { font-weight: 600; padding: 0 4px; }
+.check-option { display: flex; align-items: center; gap: 9px; min-height: 36px; font-size: 12px; cursor: pointer; }
+.check-option input { width: 17px; height: 17px; flex: 0 0 17px; accent-color: #0065ff; }
+.check-option .muted { font-size: 11px; }
+.label-chip { display: inline-block; color: #fff; padding: 3px 7px; border-radius: 4px; font-size: 10px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
+.card-labels { display: flex; flex-wrap: wrap; gap: 4px; }
+.card-cover { align-self: stretch; height: 38px; margin: -12px -12px 0; border-radius: 6px 6px 0 0; }
+.task-card { gap: 8px; overflow: hidden; }
+.card-title { overflow-wrap: anywhere; max-width: 100%; }
+.card-footer { display: flex; align-items: center; gap: 8px; width: 100%; }
+.card-assignees { margin-left: auto; display: flex; gap: 3px; flex-wrap: wrap; }
+.avatar.tiny { width: 25px; height: 25px; min-width: 25px; font-size: 9px; line-height: 1; }
+.date-badge { font-size: 10px; background: #f1f2f4; color: #44546f; padding: 3px 6px; border-radius: 4px; }
+.date-badge.overdue { color: #ae2e24; background: #ffeceb; }
+.date-badge.completed { color: #216e4e; background: #dcfff1; }
+.completed-title { text-decoration: line-through; color: #626f86; }
+.inline-entry, .label-create, .label-edit-row { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0; }
+.inline-entry input, .inline-entry textarea { min-width: 0; flex: 1; }
+.inline-entry button, .label-create button { flex: 0 0 auto; }
+.label-create select, .label-edit-row select { width: 100px; }
+.label-edit-row { flex-wrap: wrap; align-items: center; }
+.label-edit-row .inline-entry { margin: 0; flex: 1; }
+.checklist { background: #f7f8fa; border: 1px solid #dfe3e8; border-radius: 7px; padding: 14px; margin-bottom: 16px; }
+.checklist header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.checklist h4 { margin: 0; font-size: 13px; flex: 1; overflow-wrap: anywhere; }
+.checklist header > span { font-size: 11px; color: #626f86; }
+.checklist progress { width: 100%; height: 7px; margin: 12px 0; accent-color: #216e4e; }
+.checklist-item { display: flex; align-items: center; gap: 4px; padding: 3px 0; }
+.checklist-item .check-option { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.checklist-item button { min-width: 32px; min-height: 32px; padding: 2px 6px; }
+.comment { border: 1px solid #dfe3e8; border-radius: 7px; padding: 13px; margin: 12px 0; background: #fff; }
+.comment header { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.comment time, .activity-list time { font-size: 10px; color: #626f86; }
+.comment p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0; }
+.comment-actions { display: flex; gap: 15px; }
+.activity-list { padding-left: 20px; }
+.activity-list li { margin: 13px 0; overflow-wrap: anywhere; }
+.activity-list time { display: block; }
+.danger { color: #ae2e24; border-color: #efb6b1; margin: 0 6px; }
+.danger:hover { background: #ffeceb; }
+.confirm-box { padding: 14px; background: #fff7d6; color: #533f04; border: 1px solid #f5cd47; border-radius: 6px; margin-top: 12px; }
+.confirm-box p { margin-bottom: 10px; }
+.confirm-box button { margin: 3px; }
+.filter-panel { margin: 0 24px 16px; border: 1px solid #ffffff45; color: #fff; background: #00000012; padding: 9px 12px; border-radius: 6px; font-size: 12px; }
+.filter-panel[open] { background: #f4f5f7; color: #172b4d; }
+.filter-panel > small { color: #626f86; display: block; margin: 10px 0 3px; }
+.filter-controls { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)) auto; align-items: end; gap: 10px; margin-top: 16px; }
+.filter-controls .field, .saved-view-row .field { margin: 0; min-width: 0; }
+.filter-controls input, .filter-controls select, .saved-view-row input, .saved-view-row select { font-size: 12px; padding: 8px; }
+.saved-view-row { display: flex; align-items: flex-end; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.saved-view-row .field { flex: 1; min-width: 140px; }
+.saved-view-row .inline-entry { flex: 1; margin: 0; min-width: 220px; align-items: stretch; }
+.list.over-limit { border: 2px solid #f5cd47; padding: 8px; }
+.wip-warning { font-size: 10px; background: #fff7d6; color: #7f5f01; border-radius: 4px; margin: 0 0 8px; padding: 5px 7px; }
+.ownership-panel { margin-top: 30px; max-width: 550px; border-top: 1px solid #dfe3e8; padding-top: 24px; }
+@media (max-width: 700px) {
+  .detail-grid { grid-template-columns: 1fr; gap: 0; }
+  .filter-controls { grid-template-columns: 1fr 1fr; }
+  .filter-panel { margin-left: 14px; margin-right: 14px; }
+  .inline-entry { flex-wrap: wrap; }
+  .inline-entry input, .inline-entry textarea { flex-basis: 160px; }
+  .check-option .muted { display: none; }
+  .label-edit-row .inline-entry { flex-wrap: wrap; }
+  .checklist-item { flex-wrap: wrap; }
+  .checklist-item .check-option { flex-basis: calc(100% - 114px); }
+  button { min-height: 36px; }
+}
+
+.archive-item { flex-wrap: wrap; }
+.archive-item > span { flex: 1; min-width: 90px; overflow-wrap: anywhere; }
+.archive-item .confirm-box { flex-basis: 100%; }
