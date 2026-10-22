@@ -15,7 +15,7 @@ export function matchesFilters(card, filters) {
   return (!query || `${card.title} ${card.description || ""}`.toLowerCase().includes(query)) &&
     (!filters.labelIds?.length || filters.labelIds.every(id => card.labelIds?.includes(id))) &&
     (!filters.assigneeIds?.length || filters.assigneeIds.every(id => card.assigneeIds?.includes(id))) &&
-    (!filters.due || (filters.due === "upcoming" ? !card.completed && !!card.dueDate && new Date(card.dueDate) >= new Date() && new Date(card.dueDate) <= new Date(Date.now() + 7 * 86400000) : dueState(card) === filters.due));
+    (!filters.due || (filters.due === "none" ? !card.dueDate : filters.due === "upcoming" ? !card.completed && !!card.dueDate && new Date(card.dueDate) >= new Date() && new Date(card.dueDate) <= new Date(Date.now() + 7 * 86400000) : dueState(card) === filters.due));
 }
 function Entry({ label, children }) { return <label className="field"><span>{label}</span>{children}</label>; }
 function InlineForm({ label, onSubmit, busy, multiline = false }) {

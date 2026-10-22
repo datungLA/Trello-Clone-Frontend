@@ -64,6 +64,7 @@ function Modal({ title, children, onClose, wide = false }) {
   return (
     <dialog
       ref={dialog}
+      aria-label={title}
       onCancel={onClose}
       className={wide ? "modal wide" : "modal"}
       onClick={(e) => {
