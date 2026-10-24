@@ -21,8 +21,8 @@ function Entry({ label, children }) { return <label className="field"><span>{lab
 function InlineForm({ label, onSubmit, busy, multiline = false }) {
   const [text, setText] = useState("");
   return <form className="inline-entry" onSubmit={async e => { e.preventDefault(); if (await onSubmit(text)) setText(""); }}>
-    {multiline ? <textarea aria-label={label} placeholder={label} required value={text} maxLength={5000} onChange={e => setText(e.target.value)} rows={3} /> :
-      <input aria-label={label} placeholder={label} required value={text} maxLength={200} onChange={e => setText(e.target.value)} />}
+    {multiline ? <textarea name="text" aria-label={label} placeholder={label} required value={text} maxLength={5000} onChange={e => setText(e.target.value)} rows={3} /> :
+      <input name="text" aria-label={label} placeholder={label} required value={text} maxLength={200} onChange={e => setText(e.target.value)} />}
     <button disabled={busy || !text.trim()}>Add</button>
   </form>;
 }
@@ -59,7 +59,7 @@ export function BoardFilters({ board, members, filters, onChange, onError }) {
     </div>
     <div className="saved-view-row"><Entry label="Saved view"><select value={selected} onChange={e=>{setSelected(e.target.value);const v=views.find(v=>v.id===e.target.value);if(v)onChange(v.filters);}}><option value="">Choose a view</option>{views.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></Entry>
       {selected && <button disabled={busy} onClick={async()=>{setBusy(true);try{await api(`/views/${selected}`,{method:"DELETE"});setViews(views.filter(v=>v.id!==selected));setSelected("");}catch(e){onError(e.message);}finally{setBusy(false);}}}>Delete view</button>}
-      <form className="inline-entry" onSubmit={save}><input aria-label="New view name" placeholder="Name this view" value={name} maxLength={80} required onChange={e=>setName(e.target.value)}/><button disabled={busy||!name.trim()}>Save view</button></form>
+      <form className="inline-entry" onSubmit={save}><input name="viewName" aria-label="New view name" placeholder="Name this view" value={name} maxLength={80} required onChange={e=>setName(e.target.value)}/><button disabled={busy||!name.trim()}>Save view</button></form>
     </div>
     <small>Search, label, assignee, and date filters combine. Saved views belong to your account.</small>
   </details>;
@@ -129,7 +129,7 @@ export function CardEditor({ card, board, boards, members, user, onClose, onRefr
 }
 function LabelEditor({label,disabled,onSave,onDelete}) {
   const [name,setName]=useState(label.name);const [color,setColor]=useState(label.color);const [confirm,setConfirm]=useState(false);
-  return <div className="label-edit-row"><form className="inline-entry" onSubmit={e=>{e.preventDefault();onSave(name,color);}}><input aria-label={`Rename label ${label.name}`} required maxLength={80} value={name} onChange={e=>setName(e.target.value)}/><select aria-label={`Color for ${label.name}`} value={color} onChange={e=>setColor(e.target.value)}>{palette.map((c,i)=><option key={c} value={c}>{["Forest","Amber","Coral","Violet","Ocean","Teal"][i]}</option>)}</select><button disabled={disabled}>Save</button></form><button className="text-button" disabled={disabled} onClick={()=>setConfirm(!confirm)}>{confirm?"Cancel":"Delete"}</button>{confirm&&<button className="danger" disabled={disabled} onClick={onDelete}>Remove from all cards</button>}</div>;
+  return <div className="label-edit-row"><form className="inline-entry" onSubmit={e=>{e.preventDefault();onSave(name,color);}}><input name="labelName" aria-label={`Rename label ${label.name}`} required maxLength={80} value={name} onChange={e=>setName(e.target.value)}/><select name="labelColor" aria-label={`Color for ${label.name}`} value={color} onChange={e=>setColor(e.target.value)}>{palette.map((c,i)=><option key={c} value={c}>{["Forest","Amber","Coral","Violet","Ocean","Teal"][i]}</option>)}</select><button disabled={disabled}>Save</button></form><button className="text-button" disabled={disabled} onClick={()=>setConfirm(!confirm)}>{confirm?"Cancel":"Delete"}</button>{confirm&&<button className="danger" disabled={disabled} onClick={onDelete}>Remove from all cards</button>}</div>;
 }
 function Checklist({list,disabled,act}) {
   const done=list.items.filter(i=>i.completed).length;
@@ -137,7 +137,7 @@ function Checklist({list,disabled,act}) {
 }
 function Comment({comment,user,disabled,act}) {
   const [editing,setEditing]=useState(false);const [text,setText]=useState(comment.body);
-  return <article className="comment"><header><span className="avatar tiny">{comment.displayName?.slice(0,2).toUpperCase()}</span><strong>{comment.displayName}</strong><time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString()}{comment.updatedAt!==comment.createdAt?" (edited)":""}</time></header>{editing?<form onSubmit={async e=>{e.preventDefault();if(await act(()=>api(`/comments/${comment.id}`,{method:"PATCH",body:{body:text}})))setEditing(false);}}><textarea aria-label="Edit comment" required maxLength={5000} rows={3} value={text} onChange={e=>setText(e.target.value)}/><div className="form-actions"><button disabled={disabled}>Save comment</button><button type="button" onClick={()=>setEditing(false)}>Cancel</button></div></form>:<p>{comment.body}</p>}{comment.userId===user.id&&!editing&&<div className="comment-actions"><button className="text-button" disabled={disabled} onClick={()=>setEditing(true)}>Edit</button><button className="text-button" disabled={disabled} onClick={()=>act(()=>api(`/comments/${comment.id}`,{method:"DELETE"}))}>Delete</button></div>}</article>;
+  return <article className="comment"><header><span className="avatar tiny">{comment.displayName?.slice(0,2).toUpperCase()}</span><strong>{comment.displayName}</strong><time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString()}{comment.updatedAt!==comment.createdAt?" (edited)":""}</time></header>{editing?<form onSubmit={async e=>{e.preventDefault();if(await act(()=>api(`/comments/${comment.id}`,{method:"PATCH",body:{body:text}})))setEditing(false);}}><textarea name="comment" aria-label="Edit comment" required maxLength={5000} rows={3} value={text} onChange={e=>setText(e.target.value)}/><div className="form-actions"><button disabled={disabled}>Save comment</button><button type="button" onClick={()=>setEditing(false)}>Cancel</button></div></form>:<p>{comment.body}</p>}{comment.userId===user.id&&!editing&&<div className="comment-actions"><button className="text-button" disabled={disabled} onClick={()=>setEditing(true)}>Edit</button><button className="text-button" disabled={disabled} onClick={()=>act(()=>api(`/comments/${comment.id}`,{method:"DELETE"}))}>Delete</button></div>}</article>;
 }
 export function OwnershipTransfer({workspace,members,onTransferred,busy,onTransfer}) {
   const [target,setTarget]=useState("");const [confirm,setConfirm]=useState(false);

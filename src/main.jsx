@@ -800,6 +800,7 @@ function App() {
                 <label className="board-search">
                   <Icon name="search" size={16} />
                   <input
+                    name="cardSearch"
                     aria-label="Filter cards"
                     placeholder="Filter cards"
                     value={search}
@@ -1058,6 +1059,7 @@ function App() {
                     <label className="search">
                       <Icon name="search" size={17} />
                       <input
+                        name="boardSearch"
                         placeholder="Find a board"
                         aria-label="Find a board"
                         value={search}
@@ -1367,7 +1369,7 @@ function App() {
                   />
                 </Field>
                 <Field label="Email">
-                  <input value={user.email} readOnly />
+                  <input name="email" value={user.email} readOnly />
                 </Field>
                 <button className="primary" disabled={busy}>
                   Save profile
@@ -1577,6 +1579,7 @@ function AddItem({ label, placeholder, onAdd, busy }) {
       }}
     >
       <input
+        name="title"
         autoFocus
         aria-label={placeholder}
         required

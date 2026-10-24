@@ -24,6 +24,13 @@ async function authMutation(path, data) {
   const csrf = await parse(
     await fetch("/api/auth/csrf", { credentials: "include" }),
   );
+  if (path === "renew" && csrf.hasSession === false) {
+    accessToken = null;
+    throw Object.assign(new Error("Sign in to continue."), {
+      status: 401,
+      code: "TOKEN_INVALID",
+    });
+  }
   return parse(
     await fetch(`/api/auth/${path}`, {
       method: "POST",

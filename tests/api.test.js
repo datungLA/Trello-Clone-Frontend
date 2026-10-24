@@ -16,6 +16,17 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
+test("anonymous bootstrap skips renewal when no refresh cookie exists", async () => {
+  const client = await freshClient();
+  const requests = [];
+  globalThis.fetch = async (url) => {
+    requests.push(url);
+    return response({ csrfToken: "csrf", hasSession: false });
+  };
+  await assert.rejects(client.renew(), error => error.code === "TOKEN_INVALID");
+  assert.deepEqual(requests, ["/api/auth/csrf"]);
+});
+
 test("logout sends the JWT and CSRF token without exposing refresh cookies", async () => {
   const client = await freshClient();
   client.setAccessToken("access-before-logout");
