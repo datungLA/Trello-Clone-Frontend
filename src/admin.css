@@ -111,6 +111,24 @@
 .session-details dt { font-weight: 600; color: var(--admin-muted); }
 .session-details dd { margin: 3px 0 0; }
 .session-list > li > button { font-size: 11px; min-width: 84px; }
+:root[data-theme="dark"] {
+  --admin-canvas: #151a22;
+  --admin-surface: #202733;
+  --admin-ink: #e7edf5;
+  --admin-muted: #a6b2c2;
+  --admin-border: #3a4656;
+  --admin-tint: #26364d;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    --admin-canvas: #151a22;
+    --admin-surface: #202733;
+    --admin-ink: #e7edf5;
+    --admin-muted: #a6b2c2;
+    --admin-border: #3a4656;
+    --admin-tint: #26364d;
+  }
+}
 @media (max-width: 1100px) {
   .admin-layout { grid-template-columns: 195px minmax(0,1fr); }
   .admin-main { padding: 32px 24px; }

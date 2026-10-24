@@ -2,6 +2,9 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, renew, logout, setAccessToken, setExpiredHandler } from "./api";
 import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer } from "./roadmap";
+import { ConfirmDialog } from "./confirm";
+import Notifications from "./notifications";
+import { Archive, ArrowRight, Check, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
 import "./styles.css";
 const AdminPanel = lazy(() => import("./admin"));
 const SessionsPanel = lazy(() => import("./sessions"));
@@ -25,36 +28,9 @@ const colors = [
 ];
 const uid = () => crypto.randomUUID();
 function Icon({ name, size = 20 }) {
-  const paths = {
-    grid: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
-    plus: "M12 5v14M5 12h14",
-    arrow: "M15 6l-6 6 6 6",
-    people:
-      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
-    star: "m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z",
-    archive: "M3 3h18v5H3z M5 8v13h14V8 M10 12h4",
-    close: "M6 6l12 12M6 18 18 6",
-    search: "M21 21l-6-6M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0",
-    lock: "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4",
-    card: "M3 4h18v16H3zM7 9h10M7 13h6",
-    check: "m5 12 4 4L19 6",
-    chevron: "m8 10 4 4 4-4",
-  };
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={paths[name] || paths.grid} />
-    </svg>
-  );
+  const icons = { grid: LayoutGrid, plus: Plus, arrow: ChevronDown, people: UsersRound, star: Star, archive: Archive, close: X, search: Search, lock: LockKeyhole, card: SquareKanban, check: Check, chevron: ChevronDown };
+  const LucideIcon = icons[name] || LayoutGrid;
+  return <LucideIcon size={size} strokeWidth={1.7} aria-hidden="true"/>;
 }
 function Logo() {
   return (
@@ -274,7 +250,7 @@ function Auth({ onLogin, initialMode }) {
                     "forgot-password": "Send reset link",
                     "reset-password": "Set new password",
                   }[mode]}
-              <span aria-hidden="true">→</span>
+              <ArrowRight size={16} aria-hidden="true"/>
             </button>
           </form>
           <div className="auth-links">
@@ -326,6 +302,11 @@ function Auth({ onLogin, initialMode }) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [notification, setNotification] = useState("");
+  const [theme, setTheme] = useState("system");
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [dropTarget, setDropTarget] = useState("");
   const [adminOpen, setAdminOpen] = useState(() => location.pathname.split("/")[1] === "admin");
   const [booting, setBooting] = useState(true);
   const [workspaces, setWorkspaces] = useState([]);
@@ -341,12 +322,21 @@ function App() {
   const [cardFilters, setCardFilters] = useState({labelIds: [], assigneeIds: [], due: ""});
   const [view, setView] = useState("boards");
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiveDelete, setArchiveDelete] = useState(null);
   const [cardId, setCardId] = useState(null);
   const [cardDraft, setCardDraft] = useState(null);
   const [invitation, setInvitation] = useState(null);
   const navigation = useRef(0);
   const workspace = workspaces.find((w) => w.id === workspaceId);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    return () => { delete document.documentElement.dataset.theme; };
+  }, [theme]);
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => setNotification(""), 3200);
+    return () => clearTimeout(timer);
+  }, [notification]);
+  useEffect(() => { if (user) setTheme(user.theme || "system"); }, [user?.id, user?.theme]);
   useEffect(() => {
     setExpiredHandler(() => {
       setUser(null);
@@ -476,6 +466,7 @@ function App() {
     setError("");
     try {
       await action();
+      setNotification("Changes saved.");
       return true;
     } catch (err) {
       setError(
@@ -529,6 +520,9 @@ function App() {
         });
     } catch (err) {
       if (!(err instanceof SyntaxError)) setError(err.message);
+    } finally {
+      setDraggedItem(null);
+      setDropTarget("");
     }
   }
   if (booting)
@@ -558,7 +552,7 @@ function App() {
       b.title.toLowerCase().includes(search.toLowerCase()),
   );
   return (
-    <div className="app">
+    <div className="app" data-theme={theme}>
       <header className="topbar">
         <button
           className="brand-button"
@@ -587,6 +581,7 @@ function App() {
         <div className="topbar-spacer" />
         {user.isAdmin && <button className="nav-link admin-entry" onClick={() => {setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}>Administration</button>}
         <span className="dev-badge">DEV WORKSPACE</span>
+        <Notifications userId={user.id} onOpenCard={async id => { const card = await api(`/cards/${id}`); await openBoard(card.boardId, false); setCardId(card.id); setCardDraft(card); history.pushState({}, "", `/cards/${id}`); }}/>
         <button
           className="avatar"
           aria-label="Open profile"
@@ -809,12 +804,13 @@ function App() {
                 </label>
               </div>
               <BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/>
+              <p className="drag-hint">Drag cards between lists or list headers to reorder. Position controls are available in card and list settings.</p>
               <div className="lists">
                 {visibleLists.map((list, index) => (
                   <section
-                    className={`list ${list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit ? "over-limit" : ""}`}
+                    className={`list ${list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit ? "over-limit" : ""} ${dropTarget === `list-${list.id}` ? "drop-target" : ""}`}
                     key={list.id}
-                    onDragOver={(e) => e.preventDefault()}
+                    onDragOver={(e) => { e.preventDefault(); setDropTarget(`list-${list.id}`); }}
                     onDrop={(e) =>
                       drop(
                         e,
@@ -825,13 +821,12 @@ function App() {
                   >
                     <header
                       draggable={!board.closed && !busy}
+                      onDragEnd={() => { setDraggedItem(null); setDropTarget(""); }}
                       onDragStart={(e) =>
-                        e.dataTransfer.setData(
-                          "text/plain",
-                          JSON.stringify({ type: "list", id: list.id }),
-                        )
+                        { setDraggedItem(`list-${list.id}`); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", JSON.stringify({ type: "list", id: list.id })); }
                       }
                     >
+                      <GripVertical className="drag-grip" size={16} aria-hidden="true"/>
                       <h2>{list.title}</h2>
                       <span className="list-count">
                         {list.cards.filter((c) => !c.archived).length}{list.wipLimit ? ` / ${list.wipLimit}` : ""}
@@ -844,7 +839,7 @@ function App() {
                           setModal({ type: "list-settings", list, index })
                         }
                       >
-                        •••
+                        <MoreHorizontal size={16} aria-hidden="true"/>
                       </button>
                     </header>
                     {list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit && <p className="wip-warning" role="status">Above work-in-progress limit</p>}
@@ -858,17 +853,20 @@ function App() {
                         .sort((a, b) => a.position - b.position)
                         .map((c) => (
                           <button
-                            className="task-card"
+                            className={`task-card ${dropTarget === `card-${c.id}` ? "drop-target" : ""} ${draggedItem === `card-${c.id}` ? "dragging" : ""}`}
                             key={c.id}
                             draggable={!board.closed && !busy}
                             onDragStart={(e) => {
                               e.stopPropagation();
+                              setDraggedItem(`card-${c.id}`);
+                              e.dataTransfer.effectAllowed = "move";
                               e.dataTransfer.setData(
                                 "text/plain",
                                 JSON.stringify({ type: "card", id: c.id }),
                               );
                             }}
-                            onDragOver={(e) => e.preventDefault()}
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDropTarget(`card-${c.id}`); }}
+                            onDragEnd={() => { setDraggedItem(null); setDropTarget(""); }}
                             onDrop={(e) => {
                               e.stopPropagation();
                               drop(
@@ -882,6 +880,7 @@ function App() {
                             }}
                             onClick={() => showCard(c)}
                           >
+                            <GripVertical className="drag-grip card-drag-grip" size={15} aria-hidden="true"/>
                             <CardBadges card={c} labels={board.labels || []} members={members}/>
                             {c.description && (
                               <span className="card-meta">
@@ -971,8 +970,7 @@ function App() {
                         >
                           Restore
                         </button>
-                        {item.type === "list" && <button className="danger" disabled={busy || board.closed} onClick={()=>setArchiveDelete(item.id)}>Delete</button>}
-                        {archiveDelete === item.id && <div className="confirm-box" role="alert"><p>Delete this archived list permanently? Archive every card inside first. This cannot be undone.</p><button className="danger" disabled={busy} onClick={()=>mutate(async()=>{await api(`/lists/${item.id}`,{method:"DELETE",body:{confirm:true}});setArchiveDelete(null);await refreshBoard();})}>Confirm deletion</button><button onClick={()=>setArchiveDelete(null)}>Cancel</button></div>}
+                        {item.type === "list" && <button className="danger" disabled={busy || board.closed} onClick={()=>setConfirmAction({title:"Delete archived list permanently?",message:"Archive every card inside first. The list cannot be restored after deletion.",confirmLabel:"Delete list",action:async()=>{await api(`/lists/${item.id}`,{method:"DELETE",body:{confirm:true}});await refreshBoard();}})}>Delete</button>}
                       </div>
                     ))}
                   <p className="muted">Cards inside an archived list require restoring that list first. Permanent list deletion requires all its cards to be archived.</p>
@@ -1031,16 +1029,7 @@ function App() {
                   workspace={workspace}
                   busy={busy}
                   onInvite={() => setModal("members")}
-                  onRemove={(id) =>
-                    mutate(async () => {
-                      await api(`/workspaces/${workspaceId}/members/${id}`, {
-                        method: "DELETE",
-                      });
-                      setMembers(
-                        await api(`/workspaces/${workspaceId}/members`),
-                      );
-                    })
-                  }
+                  onRemove={(id) => setConfirmAction({title:"Remove workspace member?",message:"They will lose access to this workspace and its boards.",confirmLabel:"Remove member",action:async()=>{await api(`/workspaces/${workspaceId}/members/${id}`,{method:"DELETE"});setMembers(await api(`/workspaces/${workspaceId}/members`));}})}
                 />
                 <OwnershipTransfer workspace={workspace} members={members} busy={busy} onTransfer={mutate} onTransferred={async()=>{await loadWorkspaces();setMembers(await api(`/workspaces/${workspaceId}/members`));}}/>
                 </>
@@ -1346,16 +1335,11 @@ function App() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const displayName = new FormData(e.currentTarget).get(
-                    "displayName",
-                  );
+                  const values = new FormData(e.currentTarget);
                   mutate(async () => {
-                    setUser(
-                      await api("/me", {
-                        method: "PATCH",
-                        body: { displayName },
-                      }),
-                    );
+                    const updated = await api("/me", { method: "PATCH", body: { displayName: values.get("displayName"), theme: values.get("theme") } });
+                    setUser(updated);
+                    setTheme(updated.theme);
                     setModal(null);
                   });
                 }}
@@ -1371,12 +1355,21 @@ function App() {
                 <Field label="Email">
                   <input name="email" value={user.email} readOnly />
                 </Field>
+                <Field label="Appearance">
+                  <select name="theme" defaultValue={user.theme || "system"}>
+                    <option value="system">Use device setting</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </Field>
                 <button className="primary" disabled={busy}>
                   Save profile
                 </button>
               </form>
               <hr />
               <button onClick={() => setModal("sessions")}>Manage active sessions</button>
+              <hr />
+              <section className="danger-zone"><h3>Delete account</h3><p>Your work stays available to workspace members. Transfer workspace ownership first.</p><button className="danger" disabled={busy} onClick={() => setConfirmAction({title:"Delete your account?",message:"This permanently removes your sign-in, profile, memberships, and saved views. Your comments remain marked as Deleted user. Transfer workspace ownership first.",confirmLabel:"Delete account",requiredText:"DELETE",requirePassword:true,action:async({password})=>{await api("/me",{method:"DELETE",body:{confirm:"DELETE",password}});signOutLocally();}})}>Delete account</button></section>
               <hr />
               <button
                 disabled={busy}
@@ -1495,6 +1488,8 @@ function App() {
           )}
         </Modal>
       )}
+      {notification && <div className="toast" role="status"><Icon name="check" size={18}/><span>{notification}</span><button className="icon-button" aria-label="Dismiss notification" onClick={() => setNotification("")}><Icon name="close" size={16}/></button></div>}
+      {confirmAction && <ConfirmDialog title={confirmAction.title} message={confirmAction.message} confirmLabel={confirmAction.confirmLabel} requiredText={confirmAction.requiredText} requirePassword={confirmAction.requirePassword} busy={busy} error={error} onClose={() => setConfirmAction(null)} onConfirm={async({password})=>{if(await mutate(()=>confirmAction.action({password}))){setConfirmAction(null);confirmAction.onComplete?.();}}}/>}
     </div>
   );
 }
