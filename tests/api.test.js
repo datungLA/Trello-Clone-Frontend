@@ -195,3 +195,47 @@ test("a second unauthorized response stops retrying rather than looping", async 
   assert.equal(resources, 2);
   assert.equal(renewals, 1);
 });
+
+
+test("session management renews expired access before retrying protected auth requests", async () => {
+  const client = await freshClient();
+  client.setAccessToken("expired");
+  const headers = [];
+  let renewals = 0;
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith("/csrf")) return response({ csrfToken: "csrf" });
+    if (url.endsWith("/renew")) {
+      renewals++;
+      return response({ accessToken: "renewed" });
+    }
+    headers.push(options.headers.Authorization);
+    return options.headers.Authorization === "Bearer renewed"
+      ? response([{ id: "session-family", current: true }])
+      : unauthorized();
+  };
+  assert.deepEqual(await client.api("/auth/sessions"), [{ id: "session-family", current: true }]);
+  assert.equal(renewals, 1);
+  assert.deepEqual(headers, ["Bearer expired", "Bearer renewed"]);
+});
+
+
+test("administrator permission denial preserves the ordinary user session", async () => {
+  const client = await freshClient();
+  client.setAccessToken("ordinary-user");
+  let expired = false;
+  client.setExpiredHandler(() => { expired = true; });
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, authorization: options.headers.Authorization });
+    return url === "/api/admin/overview"
+      ? response({ error: { code: "FORBIDDEN", message: "Administrator access required." } }, 403)
+      : response([]);
+  };
+  await assert.rejects(client.api("/admin/overview"), error => error.status === 403);
+  await client.api("/workspaces");
+  assert.equal(expired, false);
+  assert.deepEqual(requests, [
+    { url: "/api/admin/overview", authorization: "Bearer ordinary-user" },
+    { url: "/api/workspaces", authorization: "Bearer ordinary-user" },
+  ]);
+});

@@ -1,8 +1,19 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, renew, logout, setAccessToken, setExpiredHandler } from "./api";
 import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer } from "./roadmap";
 import "./styles.css";
+const AdminPanel = lazy(() => import("./admin"));
+const SessionsPanel = lazy(() => import("./sessions"));
+class ScreenBoundary extends React.Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) return <div className="screen-error" role="alert"><h2>This screen could not load.</h2><p>Check your connection, then reload to try again.</p><button onClick={() => location.reload()}>Reload page</button>{this.props.onBack && <button onClick={this.props.onBack}>Back to boards</button>}</div>;
+    return this.props.children;
+  }
+}
+
 
 const colors = [
   "#0065ff",
@@ -315,6 +326,7 @@ function Auth({ onLogin, initialMode }) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [adminOpen, setAdminOpen] = useState(() => location.pathname.split("/")[1] === "admin");
   const [booting, setBooting] = useState(true);
   const [workspaces, setWorkspaces] = useState([]);
   const [workspaceId, setWorkspaceId] = useState("");
@@ -391,6 +403,7 @@ function App() {
   }
   async function routeFromUrl() {
     const path = location.pathname.split("/").filter(Boolean);
+    setAdminOpen(path[0] === "admin");
     if (path[0] === "cards" && path[1]) {
       try {
         const c = await api(`/cards/${path[1]}`);
@@ -412,6 +425,7 @@ function App() {
     }
   }
   async function openBoard(id, navigate = true) {
+    setAdminOpen(false);
     const serial = ++navigation.current;
     setLoading(true);
     setCardId(null);
@@ -441,6 +455,7 @@ function App() {
     if (workspaceId) setBoards(await api(`/workspaces/${workspaceId}/boards`));
   }
   function goHome(id = workspaceId, nextView = "boards") {
+    setAdminOpen(false);
     navigation.current++;
     setWorkspaceId(id);
     setBoard(null);
@@ -448,6 +463,13 @@ function App() {
     setView(nextView);
     setSearch("");
     history.pushState({}, "", "/");
+  }
+  function signOutLocally() {
+    setAccessToken(null);
+    setUser(null); setBoard(null); setWorkspaces([]); setBoards([]);
+    setMembers([]); setWorkspaceId(""); setModal(null); setCardId(null);
+    setCardDraft(null); setAdminOpen(false);
+    history.replaceState({}, "", "/");
   }
   async function mutate(action) {
     setBusy(true);
@@ -525,6 +547,7 @@ function App() {
         }
       />
     );
+  if (adminOpen) return <ScreenBoundary onBack={() => goHome()}><Suspense fallback={<div className="boot" role="status"><Logo/><p>Opening administration...</p></div>}><AdminPanel user={user} onBack={() => goHome()} onSignedOut={signOutLocally}/></Suspense></ScreenBoundary>;
   const visibleLists = (board?.lists || [])
     .filter((l) => !l.archived)
     .sort((a, b) => a.position - b.position);
@@ -562,6 +585,7 @@ function App() {
           Create <Icon name="plus" size={16} />
         </button>
         <div className="topbar-spacer" />
+        {user.isAdmin && <button className="nav-link admin-entry" onClick={() => {setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}>Administration</button>}
         <span className="dev-badge">DEV WORKSPACE</span>
         <button
           className="avatar"
@@ -1127,6 +1151,7 @@ function App() {
                   board: "Create a board",
                   "board-settings": "Board settings",
                   profile: "Your profile",
+                  sessions: "Your active sessions",
                   members: "Invite a teammate",
                   accept: "Join a workspace",
                 }[modal]
@@ -1349,6 +1374,8 @@ function App() {
                 </button>
               </form>
               <hr />
+              <button onClick={() => setModal("sessions")}>Manage active sessions</button>
+              <hr />
               <button
                 disabled={busy}
                 onClick={() =>
@@ -1369,6 +1396,7 @@ function App() {
               </button>
             </>
           )}
+          {modal === "sessions" && <ScreenBoundary><Suspense fallback={<p role="status">Loading session management...</p>}><SessionsPanel onSignedOut={signOutLocally}/></Suspense></ScreenBoundary>}
           {modal === "members" && (
             <>
               {workspace?.role === "owner" ? (

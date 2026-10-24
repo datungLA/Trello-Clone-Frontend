@@ -79,7 +79,8 @@ export async function api(path, options = {}, retry = true) {
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  if (response.status === 401 && retry && !path.startsWith("/auth/")) {
+  const protectedAuthPath = path === "/auth/me" || path === "/auth/sessions" || path.startsWith("/auth/sessions/");
+  if (response.status === 401 && retry && (!path.startsWith("/auth/") || protectedAuthPath)) {
     try {
       await renew();
     } catch (error) {
