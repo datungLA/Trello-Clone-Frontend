@@ -188,6 +188,13 @@ button svg {
   grid-template-columns: 1fr 1fr;
   background: white;
 }
+.security-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.security-heading { display: flex; gap: 8px; align-items: center; }
+.setup-page { min-height: 100vh; padding: 40px 20px; display: grid; place-items: center; background: var(--canvas, #f4f5f7); }
+.setup-card { width: 100%; max-width: 460px; padding: 32px; background: var(--surface, white); border: 1px solid #dfe3e8; border-radius: 6px; }
+.setup-card > .eyebrow { display: block; margin-top: 16px; }
+.setup-card h1 { font-size: 28px; line-height: 1.25; }
+.setup-card > p { color: var(--muted); margin-bottom: 24px; }
 .auth-brand {
   padding: 45px 9%;
   background: #deebff;

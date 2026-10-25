@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { api, renew, logout, setAccessToken, setExpiredHandler } from "./api";
+import { api, renew, logout, logoutAll, setAccessToken, setExpiredHandler } from "./api";
 import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer } from "./roadmap";
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
@@ -9,6 +9,8 @@ import { Archive, ArrowRight, Check, ChevronDown, GripVertical, LayoutGrid, Lock
 import "./styles.css";
 const AdminPanel = lazy(() => import("./admin"));
 const SessionsPanel = lazy(() => import("./sessions"));
+const SetupPage = lazy(() => import("./setup"));
+const PasswordSettings = lazy(() => import("./password-settings"));
 class ScreenBoundary extends React.Component {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -91,10 +93,15 @@ function Field({ label, children }) {
     </label>
   );
 }
-function Auth({ onLogin, initialMode }) {
+function Auth({ onLogin, onSignedOut, initialMode, initialMessage = "" }) {
   const [mode, setMode] = useState(initialMode || "login");
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage);
+  const [verificationToken] = useState(() => new URLSearchParams(location.search).get("token"));
+  const [verificationDone, setVerificationDone] = useState(false);
+  useEffect(() => {
+    if (initialMode === "verify-email" || initialMode === "reset-password") history.replaceState({}, "", location.pathname);
+  }, [initialMode]);
   const [busy, setBusy] = useState(false);
   async function submit(e) {
     e.preventDefault();
@@ -103,7 +110,17 @@ function Auth({ onLogin, initialMode }) {
     setBusy(true);
     const values = Object.fromEntries(new FormData(e.currentTarget));
     try {
-      if (mode === "forgot-password") {
+      if (mode === "verify-email") {
+        if (!verificationToken) throw new Error("This verification link is missing or invalid. Request a new link below.");
+        const result = await api("/auth/verify-email", { method: "POST", body: { token: verificationToken } });
+        setVerificationDone(true);
+        setMessage(result.message || "Email verified. You can now log in.");
+      } else if (mode === "resend-verification" || mode === "register") {
+        const result = await api(`/auth/${mode}`, { method: "POST", body: values });
+        setMode("resend-verification");
+        setMessage(result.message || "If your account needs verification, check your email for a link.");
+        e.target.reset();
+      } else if (mode === "forgot-password") {
         const result = await api("/auth/forgot-password", {
           method: "POST",
           body: values,
@@ -116,13 +133,13 @@ function Auth({ onLogin, initialMode }) {
         await api("/auth/reset-password", {
           method: "POST",
           body: {
-            token: new URLSearchParams(location.search).get("token"),
+            token: verificationToken,
             newPassword: values.password,
           },
         });
         setMode("login");
         setMessage("Password updated. Sign in with your new password.");
-        history.replaceState({}, "", "/");
+        onSignedOut("Password updated. Sign in with your new password.");
       } else {
         const data = await api(`/auth/${mode}`, {
           method: "POST",
@@ -133,6 +150,7 @@ function Auth({ onLogin, initialMode }) {
       }
     } catch (err) {
       setError(err.message);
+      if (err.code === "EMAIL_NOT_VERIFIED") setMode("resend-verification");
     } finally {
       setBusy(false);
     }
@@ -142,6 +160,8 @@ function Auth({ onLogin, initialMode }) {
     register: "Make room for great work.",
     "forgot-password": "Forgot your password?",
     "reset-password": "A fresh start.",
+    "resend-verification": "Check your email.",
+    "verify-email": verificationDone ? "You are verified." : "Verify your email.",
   }[mode];
   return (
     <div className="auth-page">
@@ -188,6 +208,8 @@ function Auth({ onLogin, initialMode }) {
               ? "Log in to pick up where you left off."
               : mode === "register"
                 ? "Create your account and start organizing."
+                : mode === "resend-verification" ? "Open the link in your email before logging in. Need another link? Enter your email below."
+                : mode === "verify-email" ? "Confirm your email to activate your account."
                 : "Get back to the work that matters."}
           </p>
           <form onSubmit={submit}>
@@ -202,7 +224,7 @@ function Auth({ onLogin, initialMode }) {
                 />
               </Field>
             )}
-            {mode !== "reset-password" && (
+            {!["reset-password", "verify-email"].includes(mode) && (
               <Field label="Email address">
                 <input
                   name="email"
@@ -213,7 +235,7 @@ function Auth({ onLogin, initialMode }) {
                 />
               </Field>
             )}
-            {!["forgot-password"].includes(mode) && (
+            {!["forgot-password", "resend-verification", "verify-email"].includes(mode) && (
               <Field label="Password">
                 <input
                   name="password"
@@ -242,7 +264,7 @@ function Auth({ onLogin, initialMode }) {
                 {message}
               </p>
             )}
-            <button className="primary full" disabled={busy}>
+            <button className="primary full" disabled={busy || (mode === "verify-email" && verificationDone)}>
               {busy
                 ? "Please wait..."
                 : {
@@ -250,11 +272,14 @@ function Auth({ onLogin, initialMode }) {
                     register: "Create account",
                     "forgot-password": "Send reset link",
                     "reset-password": "Set new password",
+                    "resend-verification": "Resend verification link",
+                    "verify-email": verificationDone ? "Email verified" : "Verify email",
                   }[mode]}
               <ArrowRight size={16} aria-hidden="true"/>
             </button>
           </form>
           <div className="auth-links">
+            {mode === "verify-email" && <button className="text-button" disabled={busy} onClick={() => { setMode("resend-verification"); setError(""); setMessage(""); }}>Request a new verification link</button>}
             {mode === "login" ? (
               <>
                 <button
@@ -284,6 +309,7 @@ function Auth({ onLogin, initialMode }) {
                 className="text-button"
                 onClick={() => {
                   setMode("login");
+                  history.replaceState({}, "", "/");
                   setError("");
                 }}
               >
@@ -304,11 +330,12 @@ function Auth({ onLogin, initialMode }) {
 function App() {
   const [user, setUser] = useState(null);
   const [notification, setNotification] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
   const [theme, setTheme] = useState("system");
   const [confirmAction, setConfirmAction] = useState(null);
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState("");
-  const [adminOpen, setAdminOpen] = useState(() => location.pathname.split("/")[1] === "admin");
+  const [adminOpen, setAdminOpen] = useState(() => location.pathname.split("/")[1] === "admin" || location.hostname === "trello-admin.learnvibecode.online");
   const [booting, setBooting] = useState(true);
   const [workspaces, setWorkspaces] = useState([]);
   const [workspaceId, setWorkspaceId] = useState("");
@@ -394,7 +421,7 @@ function App() {
   }
   async function routeFromUrl() {
     const path = location.pathname.split("/").filter(Boolean);
-    setAdminOpen(path[0] === "admin");
+    setAdminOpen(path[0] === "admin" || location.hostname === "trello-admin.learnvibecode.online");
     if (path[0] === "cards" && path[1]) {
       try {
         const c = await api(`/cards/${path[1]}`);
@@ -446,6 +473,7 @@ function App() {
     if (workspaceId) setBoards(await api(`/workspaces/${workspaceId}/boards`));
   }
   function goHome(id = workspaceId, nextView = "boards") {
+    if (location.hostname === "trello-admin.learnvibecode.online") { location.assign("https://trello-app.learnvibecode.online/"); return; }
     setAdminOpen(false);
     navigation.current++;
     setWorkspaceId(id);
@@ -455,7 +483,8 @@ function App() {
     setSearch("");
     history.pushState({}, "", "/");
   }
-  function signOutLocally() {
+  function signOutLocally(message = "") {
+    setAuthMessage(typeof message === "string" ? message : "");
     setAccessToken(null);
     setUser(null); setBoard(null); setWorkspaces([]); setBoards([]);
     setMembers([]); setWorkspaceId(""); setModal(null); setCardId(null);
@@ -533,12 +562,15 @@ function App() {
         <p>Getting your workspace ready...</p>
       </div>
     );
-  if (!user)
+  if (location.pathname === "/setup") return <ScreenBoundary><Suspense fallback={<div className="boot" role="status">Checking setup availability...</div>}><SetupPage onComplete={newUser => { history.replaceState({}, "", "/admin"); setAdminOpen(true); setUser(newUser); }}/></Suspense></ScreenBoundary>;
+  if (["/verify-email", "/reset-password"].includes(location.pathname) || !user)
     return (
       <Auth
         onLogin={setUser}
+        onSignedOut={signOutLocally}
+        initialMessage={authMessage}
         initialMode={
-          location.pathname === "/reset-password" ? "reset-password" : location.pathname === "/signup" ? "register" : undefined
+          location.pathname === "/verify-email" ? "verify-email" : location.pathname === "/reset-password" ? "reset-password" : location.pathname === "/signup" ? "register" : undefined
         }
       />
     );
@@ -580,7 +612,7 @@ function App() {
           Create <Icon name="plus" size={16} />
         </button>
         <div className="topbar-spacer" />
-        {user.isAdmin && <button className="nav-link admin-entry" onClick={() => {setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}>Administration</button>}
+        {user.isAdmin && <button className="nav-link admin-entry" onClick={() => {if (location.hostname === "trello-app.learnvibecode.online") { location.assign("https://trello-admin.learnvibecode.online/admin"); return; } setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}>Administration</button>}
         <span className="dev-badge">DEV WORKSPACE</span>
         <Notifications userId={user.id} onOpenCard={async id => { const card = await api(`/cards/${id}`); await openBoard(card.boardId, false); setCardId(card.id); setCardDraft(card); history.pushState({}, "", `/cards/${id}`); }}/>
         <button
@@ -1368,7 +1400,10 @@ function App() {
                 </button>
               </form>
               <hr />
+              <Suspense fallback={<p role="status">Loading account security...</p>}><PasswordSettings onSignedOut={signOutLocally}/></Suspense>
+              <hr />
               <button onClick={() => setModal("sessions")}>Manage active sessions</button>
+              <button disabled={busy} onClick={() => setConfirmAction({title:"Sign out all devices?",message:"Every session, including this one, will end immediately. Save unfinished work first.",confirmLabel:"Sign out everywhere",action:async()=>{await logoutAll();signOutLocally("All devices signed out. Log in to continue.");}})}>Sign out all devices</button>
               <hr />
               <section className="danger-zone"><h3>Delete account</h3><p>Your work stays available to workspace members. Transfer workspace ownership first.</p><button className="danger" disabled={busy} onClick={() => setConfirmAction({title:"Delete your account?",message:"This permanently removes your sign-in, profile, memberships, and saved views. Your comments remain marked as Deleted user. Transfer workspace ownership first.",confirmLabel:"Delete account",requiredText:"DELETE",requirePassword:true,action:async({password})=>{await api("/me",{method:"DELETE",body:{confirm:"DELETE",password}});signOutLocally();}})}>Delete account</button></section>
               <hr />

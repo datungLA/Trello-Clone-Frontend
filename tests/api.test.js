@@ -250,3 +250,73 @@ test("administrator permission denial preserves the ordinary user session", asyn
     { url: "/api/workspaces", authorization: "Bearer ordinary-user" },
   ]);
 });
+
+test("password change includes CSRF, confirms current credentials, and clears access after success", async () => {
+  const client = await freshClient();
+  client.setAccessToken("signed-in");
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return url.endsWith("/csrf") ? response({ csrfToken: "csrf-security" }) : response({ message: "Password changed." });
+  };
+  await client.changePassword("current-password", "new-long-password");
+  const mutation = requests[1];
+  assert.equal(mutation.url, "/api/auth/change-password");
+  assert.deepEqual(JSON.parse(mutation.options.body), { currentPassword: "current-password", newPassword: "new-long-password" });
+  assert.equal(mutation.options.headers.Authorization, "Bearer signed-in");
+  assert.equal(mutation.options.headers["X-CSRF-Token"], "csrf-security");
+  await client.api("/health");
+  assert.equal(requests[2].options.headers.Authorization, undefined);
+});
+
+test("global signout renews expired access and clears the replacement token", async () => {
+  const client = await freshClient();
+  client.setAccessToken("expired");
+  const signouts = [];
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith("/csrf")) return response({ csrfToken: "csrf" });
+    if (url.endsWith("/renew")) return response({ accessToken: "renewed" });
+    if (url.endsWith("/logout-all")) {
+      signouts.push(options);
+      return options.headers.Authorization === "Bearer renewed" ? response({ success: true }) : unauthorized();
+    }
+    assert.equal(options.headers.Authorization, undefined);
+    return response({ status: "ok" });
+  };
+  await client.logoutAll();
+  assert.equal(signouts.length, 2);
+  assert.deepEqual(JSON.parse(signouts[1].body), { confirm: true });
+  assert.equal(signouts[1].headers["X-CSRF-Token"], "csrf");
+  await client.api("/health");
+});
+
+test("rejected password change keeps the current session and does not retry credentials", async () => {
+  const client = await freshClient();
+  client.setAccessToken("current-session");
+  let mutations = 0;
+  globalThis.fetch = async (url, options) => {
+    if (url.endsWith("/csrf")) return response({ csrfToken: "csrf" });
+    if (url.endsWith("/change-password")) {
+      mutations++;
+      return response({ error: { code: "INVALID_CREDENTIALS", message: "Current password is incorrect." } }, 403);
+    }
+    assert.equal(options.headers.Authorization, "Bearer current-session");
+    return response({ status: "ok" });
+  };
+  await assert.rejects(client.changePassword("incorrect", "new-long-password"), error => error.code === "INVALID_CREDENTIALS");
+  assert.equal(mutations, 1);
+  await client.api("/health");
+});
+
+test("closed setup status remains a 404 without session renewal or credential persistence", async () => {
+  const client = await freshClient();
+  const requests = [];
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return response({ error: { code: "NOT_FOUND", message: "Not found." } }, 404);
+  };
+  await assert.rejects(client.api("/auth/bootstrap/status"), error => error.status === 404);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "/api/auth/bootstrap/status");
+  assert.equal(requests[0].options.body, undefined);
+});

@@ -64,15 +64,27 @@ export async function renew() {
     });
   return renewal;
 }
-export async function logout() {
+async function authenticatedMutation(path, data) {
   try {
-    await authMutation("logout");
+    return await authMutation(path, data);
   } catch (error) {
     if (error.status !== 401) throw error;
     await renew();
-    await authMutation("logout");
+    return authMutation(path, data);
   }
+}
+export async function logout() {
+  await authenticatedMutation("logout");
   accessToken = null;
+}
+export async function logoutAll() {
+  await authenticatedMutation("logout-all", { confirm: true });
+  accessToken = null;
+}
+export async function changePassword(currentPassword, newPassword) {
+  const result = await authenticatedMutation("change-password", { currentPassword, newPassword });
+  accessToken = null;
+  return result;
 }
 export async function api(path, options = {}, retry = true) {
   const { body, ...rest } = options;
