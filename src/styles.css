@@ -61,6 +61,30 @@ select:focus {
   border-color: #0065ff;
   outline: 2px solid #b3d4ff;
 }
+.select-control { position: relative; display: block; width: 100%; min-width: 0; }
+:root .select-control > select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: none;
+  box-shadow: none;
+  min-height: 38px;
+  line-height: 1.5;
+  padding-right: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.select-control > svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.select-control > select:hover:not(:disabled) { border-color: #8592a3; }
+.select-control > select:focus { border-color: #579dff; box-shadow: 0 0 0 3px #579dff26; outline: none; }
+.select-control:has(select:disabled) { opacity: .6; }
+.select-control > select:disabled { cursor: not-allowed; }
+.label-create .select-control,
+.label-edit-row .select-control { flex: 0 0 112px; width: 112px; }
+.label-create .select-control select,
+.label-edit-row .select-control select { width: 100%; }
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid #2684ff;
@@ -386,7 +410,8 @@ button svg {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 8px 18px;
+  padding: 4px 4px 16px;
+  background: transparent;
 }
 .workspace-avatar {
   width: 36px;
@@ -417,17 +442,20 @@ button svg {
 }
 .workspace-picker {
   display: flex;
-  gap: 5px;
-  padding-bottom: 14px;
-  margin-bottom: 10px;
-  border-bottom: 1px solid #e8ebef;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 18px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
 }
 .workspace-picker select {
-  font-size: 11px;
-  padding: 5px 8px;
+  font-size: 12px;
+  padding: 9px 34px 9px 12px;
   min-width: 0;
-  border-color: #e4e7ed;
+  border-color: var(--line);
 }
+.workspace-picker .select-control { flex: 1; }
+.workspace-picker > .icon-button { width: 36px; height: 36px; flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .sidebar nav {
   display: flex;
   flex-direction: column;
@@ -565,15 +593,32 @@ button svg {
   align-items: center;
   gap: 8px;
   color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 0 11px;
+  min-height: 38px;
+  transition: border-color 120ms, box-shadow 120ms;
 }
-.search input {
+.search:focus-within,
+.board-search:focus-within { border-color: #579dff; box-shadow: 0 0 0 3px #579dff26; }
+.search > svg,
+.board-search > svg { flex-shrink: 0; width: 17px; height: 17px; }
+:root[data-theme] .search input,
+:root[data-theme] .board-search input {
   background: transparent;
   border: 0;
-  padding: 5px 0;
+  border-radius: 0;
+  padding: 9px 0;
   font-size: 12px;
-  width: 130px;
-  outline-offset: 4px;
+  width: 154px;
+  min-width: 0;
+  box-shadow: none;
+  outline: none;
+  color: var(--text);
 }
+:root[data-theme] .search input::placeholder,
+:root[data-theme] .board-search input::placeholder { color: var(--muted); opacity: 1; }
 .board-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1593,7 +1638,6 @@ hr {
 :root[data-theme="dark"] .modal,
 :root[data-theme="dark"] .comment,
 :root[data-theme="dark"] .checklist { background: var(--surface); color: var(--text); border-color: var(--line); }
-:root[data-theme="dark"] .workspace-switch,
 :root[data-theme="dark"] .main,
 :root[data-theme="dark"] .board-main,
 :root[data-theme="dark"] .board-subbar,

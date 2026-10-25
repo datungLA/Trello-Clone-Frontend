@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { api, renew, logout, setAccessToken, setExpiredHandler } from "./api";
 import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer } from "./roadmap";
 import { ConfirmDialog } from "./confirm";
+import { Select } from "./select";
 import Notifications from "./notifications";
 import { Archive, ArrowRight, Check, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
 import "./styles.css";
@@ -605,7 +606,7 @@ function App() {
             <label htmlFor="workspace-select" className="sr-only">
               Select workspace
             </label>
-            <select
+            <Select
               id="workspace-select"
               value={workspaceId}
               onChange={(e) => goHome(e.target.value)}
@@ -618,7 +619,7 @@ function App() {
                   {w.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <button
               className="icon-button"
               aria-label="Create workspace"
@@ -1356,11 +1357,11 @@ function App() {
                   <input name="email" value={user.email} readOnly />
                 </Field>
                 <Field label="Appearance">
-                  <select name="theme" defaultValue={user.theme || "system"}>
+                  <Select name="theme" defaultValue={user.theme || "system"}>
                     <option value="system">Use device setting</option>
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
-                  </select>
+                  </Select>
                 </Field>
                 <button className="primary" disabled={busy}>
                   Save profile
