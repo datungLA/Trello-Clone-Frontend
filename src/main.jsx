@@ -356,9 +356,9 @@ function App() {
   const navigation = useRef(0);
   const workspace = workspaces.find((w) => w.id === workspaceId);
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.theme = user ? theme : "light";
     return () => { delete document.documentElement.dataset.theme; };
-  }, [theme]);
+  }, [theme, user?.id]);
   useEffect(() => {
     if (!notification) return;
     const timer = setTimeout(() => setNotification(""), 3200);
