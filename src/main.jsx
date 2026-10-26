@@ -5,8 +5,9 @@ import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
 import Notifications from "./notifications";
-import { Archive, ArrowRight, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
+import { Archive, ArrowRight, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
 import "./styles.css";
+const BoardDashboard = lazy(() => import("./board-dashboard"));
 const MyTasks = lazy(() => import("./my-tasks"));
 const AdminPanel = lazy(() => import("./admin"));
 const SessionsPanel = lazy(() => import("./sessions"));
@@ -342,6 +343,7 @@ function App() {
   const [workspaceId, setWorkspaceId] = useState("");
   const [boards, setBoards] = useState([]);
   const [board, setBoard] = useState(null);
+  const [boardView, setBoardView] = useState("board");
   const [members, setMembers] = useState([]);
   const [modal, setModal] = useState(null);
   const [error, setError] = useState("");
@@ -433,7 +435,7 @@ function App() {
       } catch (err) {
         setError(err.message);
       }
-    } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false);
+    } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false, path[2] === "dashboard" ? "dashboard" : "board");
     else if (path[0] === "my-tasks") {
       navigation.current++;
       setBoard(null); setCardId(null); setView("tasks"); setLoading(false);
@@ -449,7 +451,7 @@ function App() {
       setView("boards");
     }
   }
-  async function openBoard(id, navigate = true) {
+  async function openBoard(id, navigate = true, nextBoardView = "board") {
     setAdminOpen(false);
     const serial = ++navigation.current;
     setLoading(true);
@@ -458,11 +460,12 @@ function App() {
       const b = await api(`/boards/${id}`);
       if (serial !== navigation.current) return;
       setBoard(b);
+      setBoardView(nextBoardView);
       setWorkspaceId(b.workspaceId);
       setArchiveOpen(false);
       setSearch("");
       setCardFilters({labelIds: [], assigneeIds: [], due: ""});
-      if (navigate) history.pushState({}, "", `/boards/${id}`);
+      if (navigate) history.pushState({}, "", `/boards/${id}${nextBoardView === "dashboard" ? "/dashboard" : ""}`);
       api(`/boards/${id}/preferences`, {
         method: "PATCH",
         body: { lastOpenedAt: true },
@@ -831,7 +834,7 @@ function App() {
                   </button>
                   <button
                     className="glass-button"
-                    onClick={() => setArchiveOpen(!archiveOpen)}
+                    onClick={() => { setBoardView("board"); setArchiveOpen(!archiveOpen); history.pushState({}, "", `/boards/${board.id}`); }}
                   >
                     <Icon name="archive" size={16} />
                     Archive
@@ -856,10 +859,11 @@ function App() {
                 </div>
               )}
               <div className="board-subbar">
-                <span>
-                  <Icon name="grid" size={16} /> Board
-                </span>
-                <label className="board-search">
+                <nav className="board-view-switch" aria-label="Board views">
+                  <button aria-pressed={boardView === "board"} onClick={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Icon name="grid" size={16}/>Board</button>
+                  <button aria-pressed={boardView === "dashboard"} onClick={() => { setBoardView("dashboard"); setArchiveOpen(false); history.pushState({}, "", `/boards/${board.id}/dashboard`); }}><ChartNoAxesCombined size={16} aria-hidden="true"/>Dashboard</button>
+                </nav>
+                {boardView === "board" && <label className="board-search">
                   <Icon name="search" size={16} />
                   <input
                     name="cardSearch"
@@ -868,8 +872,9 @@ function App() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
-                </label>
+                </label>}
               </div>
+              {boardView === "dashboard" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board dashboard...</p>}><BoardDashboard key={board.id} boardId={board.id}/></Suspense></ScreenBoundary> : <>
               <BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/>
               <p className="drag-hint">Drag cards between lists or list headers to reorder. Position controls are available in card and list settings.</p>
               <div className="lists">
@@ -996,7 +1001,8 @@ function App() {
                   </div>
                 )}
               </div>
-              {archiveOpen && (
+              </>}
+              {boardView === "board" && archiveOpen && (
                 <aside className="archive-panel">
                   <header>
                     <h2>Archived items</h2>
