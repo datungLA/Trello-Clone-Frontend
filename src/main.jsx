@@ -493,6 +493,20 @@ function App() {
   async function refreshBoards() {
     if (workspaceId) setBoards(await api(`/workspaces/${workspaceId}/boards`));
   }
+  function requestRemoveMember(id) {
+    const member = members.find(item => item.id === id);
+    if (!member || workspace?.role !== "owner") return;
+    setConfirmAction({
+      title: `Remove ${member.displayName}?`,
+      message: `They will lose access to ${workspace.name} and all its boards. Their card assignments will be cleared; shared cards and comments remain.`,
+      confirmLabel: "Remove member",
+      action: async () => {
+        await api(`/workspaces/${workspaceId}/members/${id}`, { method: "DELETE" });
+        setMembers(await api(`/workspaces/${workspaceId}/members`));
+        if (board?.workspaceId === workspaceId) await refreshBoard();
+      },
+    });
+  }
   function goHome(id = workspaceId, nextView = "boards") {
     if (location.hostname === "trello-admin.learnvibecode.online") { location.assign("https://trello-app.learnvibecode.online/"); return; }
     setAdminOpen(false);
@@ -890,7 +904,7 @@ function App() {
               {["table", "timeline"].includes(boardView) ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board view...</p>}><BoardPlanning key={`${board.id}-${boardView}`} board={board} members={members} mode={boardView} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "calendar" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board calendar...</p>}><BoardCalendar key={board.id} board={board} members={members} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "dashboard" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board dashboard...</p>}><BoardDashboard key={board.id} boardId={board.id}/></Suspense></ScreenBoundary> : <>
               <BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/>
               <p className="drag-hint">Drag cards between lists or list headers to reorder. Position controls are available in card and list settings.</p>
-              <div className="lists">
+              <div className="lists" tabIndex={0} role="region" aria-label="Board lists. Scroll horizontally to explore lists.">
                 {visibleLists.map((list, index) => (
                   <section
                     className={`list ${list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit ? "over-limit" : ""} ${dropTarget === `list-${list.id}` ? "drop-target" : ""}`}
@@ -928,7 +942,7 @@ function App() {
                       </button>
                     </header>
                     {list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit && <p className="wip-warning" role="status">Above work-in-progress limit</p>}
-                    <div className="cards">
+                    <div className="cards" tabIndex={0} role="region" aria-label={`Cards in ${list.title}. Scroll to explore cards.`}>
                       {list.cards
                         .filter(
                           (c) =>
@@ -1115,7 +1129,7 @@ function App() {
                   workspace={workspace}
                   busy={busy}
                   onInvite={() => setModal("members")}
-                  onRemove={(id) => setConfirmAction({title:"Remove workspace member?",message:"They will lose access to this workspace and its boards.",confirmLabel:"Remove member",action:async()=>{await api(`/workspaces/${workspaceId}/members/${id}`,{method:"DELETE"});setMembers(await api(`/workspaces/${workspaceId}/members`));}})}
+                  onRemove={requestRemoveMember}
                 />
                 <OwnershipTransfer workspace={workspace} members={members} busy={busy} onTransfer={mutate} onTransferred={async()=>{await loadWorkspaces();setMembers(await api(`/workspaces/${workspaceId}/members`));}}/>
                 </>
@@ -1528,7 +1542,7 @@ function App() {
               ) : (
                 <p>Only workspace owners can invite people.</p>
               )}
-              <Members members={members} workspace={workspace} />
+              <Members members={members} workspace={workspace} busy={busy} onRemove={requestRemoveMember}/>
             </>
           )}
           {modal === "accept" && (
@@ -1614,6 +1628,7 @@ function Members({ members, workspace, busy, onInvite, onRemove }) {
           </button>
         )}
       </div>
+      <p className="member-access-note">{workspace?.role === "owner" ? "Remove a member to revoke access to every board in this workspace. Transfer ownership before removing its owner." : "Workspace owners manage membership. Application administrator access does not grant workspace ownership."}</p>
       {members.map((m) => (
         <div className="member" key={m.id}>
           <span className="avatar">
@@ -1625,8 +1640,8 @@ function Members({ members, workspace, busy, onInvite, onRemove }) {
           </div>
           <span className="role-badge">{m.role}</span>
           {onRemove && workspace?.role === "owner" && m.role !== "owner" && (
-            <button disabled={busy} onClick={() => onRemove(m.id)}>
-              Remove
+            <button className="remove-member" aria-label={`Remove ${m.displayName} from workspace`} disabled={busy} onClick={() => onRemove(m.id)}>
+              <Icon name="close" size={14}/>Remove
             </button>
           )}
         </div>

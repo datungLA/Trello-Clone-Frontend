@@ -65,8 +65,7 @@ export function BoardFilters({ board, members, filters, onChange, onError }) {
       <button onClick={()=>{onChange({query:"",labelIds:[],assigneeIds:[],due:""});setSelected("");}}>Clear filters</button>
     </div>
     <div className="saved-view-row"><Entry label="Saved view"><Select value={selected} onChange={e=>{setSelected(e.target.value);const v=views.find(v=>v.id===e.target.value);if(v)onChange(v.filters);}}><option value="">Choose a view</option>{views.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</Select></Entry>
-      {selected && <button disabled={busy} onClick={()=>setConfirmDelete(true)}>Delete view</button>}
-      <form className="inline-entry" onSubmit={save}><input name="viewName" aria-label="New view name" placeholder="Name this view" value={name} maxLength={80} required onChange={e=>setName(e.target.value)}/><button disabled={busy||!name.trim()}>Save view</button></form>
+      <form className="saved-view-form" onSubmit={save}><Entry label="View name"><input name="viewName" aria-label="New view name" placeholder="Name this view" value={name} maxLength={80} required onChange={e=>setName(e.target.value)}/></Entry><button disabled={busy||!name.trim()}>Save view</button>{selected && <button type="button" disabled={busy} onClick={()=>setConfirmDelete(true)}>Delete view</button>}</form>
     </div>
     <small>Search, label, assignee, and date filters combine. Saved views belong to your account.</small>
     {confirmDelete&&<ConfirmDialog title="Delete saved view?" message="This removes the saved filters from your account." confirmLabel="Delete view" busy={busy} error={deleteError} onClose={()=>setConfirmDelete(false)} onConfirm={async()=>{setBusy(true);setDeleteError("");try{await api(`/views/${selected}`,{method:"DELETE"});setViews(views.filter(v=>v.id!==selected));setSelected("");setConfirmDelete(false);setNotice("Saved view deleted.");}catch(e){setDeleteError(e.message);}finally{setBusy(false);}}}/>}
