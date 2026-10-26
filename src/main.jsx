@@ -5,7 +5,7 @@ import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
 import Notifications from "./notifications";
-import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
+import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, ShieldCheck, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
 import "./styles.css";
 import "./board-planning.css";
 const BoardPlanning = lazy(() => import("./board-planning"));
@@ -662,7 +662,7 @@ function App() {
           Create <Icon name="plus" size={16} />
         </button>
         <div className="topbar-spacer" />
-        {user.isAdmin && <button className="nav-link admin-entry" onClick={() => {if (location.hostname === "trello-app.learnvibecode.online") { location.assign("https://trello-admin.learnvibecode.online/admin"); return; } setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}>Administration</button>}
+        {user.isAdmin && <button className="nav-link admin-entry" aria-label="Administration" onClick={() => {if (location.hostname === "trello-app.learnvibecode.online") { location.assign("https://trello-admin.learnvibecode.online/admin"); return; } setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}><ShieldCheck className="admin-entry-icon" size={18} aria-hidden="true"/><span className="admin-entry-label">Administration</span></button>}
         <span className="dev-badge">DEV WORKSPACE</span>
         <Notifications userId={user.id} onOpenCard={async id => { const card = await api(`/cards/${id}`); await openBoard(card.boardId, false); setCardId(card.id); setCardDraft(card); history.pushState({}, "", `/cards/${id}`); }}/>
         <button

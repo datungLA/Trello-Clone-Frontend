@@ -11,7 +11,7 @@
 .select-options::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .select-option { min-height: 44px; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 11px; border-radius: 7px; font-size: 14px; line-height: 1.4; cursor: pointer; color: var(--text); }
 .select-option > span { min-width: 0; overflow-wrap: anywhere; }
-.select-option > svg { color: #0065ff; flex: 0 0 auto; }
+.select-option > svg { color: var(--accent, #0065ff); flex: 0 0 auto; }
 .select-option.is-active:not([aria-disabled="true"]), .select-option:hover:not([aria-disabled="true"]) { background: var(--surface-soft); outline: 1px solid var(--line); outline-offset: -1px; }
 .select-option[aria-selected="true"] { font-weight: 600; }
 .select-option[aria-disabled="true"] { color: var(--muted); cursor: not-allowed; opacity: .65; }

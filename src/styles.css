@@ -511,6 +511,12 @@ button svg {
   font-size: 10px;
   border-radius: 3px;
 }
+.admin-entry-icon { display: none; }
+@media (max-width: 767px) {
+  .topbar .admin-entry { min-width: 36px; min-height: 36px; padding: 6px; }
+  .admin-entry-label { display: none; }
+  .admin-entry-icon { display: block; }
+}
 .sidebar-section {
   margin-top: 34px;
 }

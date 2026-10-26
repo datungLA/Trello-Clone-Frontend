@@ -113,7 +113,7 @@ export function Select({ children, value, defaultValue, onChange, id, name, disa
       const desired = Math.min(320, options.length * 44 + 16 + (options.length > 8 ? 30 : 0));
       const flip = below < Math.min(desired, 160) && above > below;
       const maxHeight = Math.max(44, Math.min(desired, flip ? above : below));
-      const width = Math.min(Math.max(rect.width, 180), rightEdge - leftEdge);
+      const width = Math.min(Math.max(rect.width, 240), rightEdge - leftEdge);
       const next = { left: Math.max(leftEdge, Math.min(rect.left, rightEdge - width)), top: flip ? Math.max(topEdge, rect.top - maxHeight - 6) : Math.min(rect.bottom + 6, bottomEdge - maxHeight), width, maxHeight };
       setPosition(previous => previous && Object.keys(next).every(key => previous[key] === next[key]) ? previous : next);
     }
