@@ -5,8 +5,10 @@ import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
 import Notifications from "./notifications";
-import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
+import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
 import "./styles.css";
+import "./board-planning.css";
+const BoardPlanning = lazy(() => import("./board-planning"));
 const BoardCalendar = lazy(() => import("./board-calendar"));
 const BoardDashboard = lazy(() => import("./board-dashboard"));
 const MyTasks = lazy(() => import("./my-tasks"));
@@ -436,7 +438,7 @@ function App() {
       } catch (err) {
         setError(err.message);
       }
-    } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false, ["dashboard", "calendar"].includes(path[2]) ? path[2] : "board");
+    } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false, ["dashboard", "calendar", "table", "timeline"].includes(path[2]) ? path[2] : "board");
     else if (path[0] === "my-tasks") {
       navigation.current++;
       setBoard(null); setCardId(null); setView("tasks"); setLoading(false);
@@ -867,6 +869,8 @@ function App() {
                 <nav className="board-view-switch" aria-label="Board views">
                   <button aria-pressed={boardView === "board"} onClick={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Icon name="grid" size={16}/>Board</button>
                   <button aria-pressed={boardView === "calendar"} onClick={() => { setBoardView("calendar"); setArchiveOpen(false); history.pushState({}, "", `/boards/${board.id}/calendar`); }}><CalendarDays size={16} aria-hidden="true"/>Calendar</button>
+                  <button aria-pressed={boardView === "table"} onClick={() => { setBoardView("table"); setArchiveOpen(false); history.pushState({}, "", `/boards/${board.id}/table`); }}><Table2 size={16} aria-hidden="true"/>Table</button>
+                  <button aria-pressed={boardView === "timeline"} onClick={() => { setBoardView("timeline"); setArchiveOpen(false); history.pushState({}, "", `/boards/${board.id}/timeline`); }}><GanttChart size={16} aria-hidden="true"/>Timeline</button>
                   <button aria-pressed={boardView === "dashboard"} onClick={() => { setBoardView("dashboard"); setArchiveOpen(false); history.pushState({}, "", `/boards/${board.id}/dashboard`); }}><ChartNoAxesCombined size={16} aria-hidden="true"/>Dashboard</button>
                 </nav>
                 {boardView === "board" && <label className="board-search">
@@ -880,7 +884,7 @@ function App() {
                   />
                 </label>}
               </div>
-              {boardView === "calendar" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board calendar...</p>}><BoardCalendar key={board.id} board={board} members={members} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "dashboard" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board dashboard...</p>}><BoardDashboard key={board.id} boardId={board.id}/></Suspense></ScreenBoundary> : <>
+              {["table", "timeline"].includes(boardView) ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board view...</p>}><BoardPlanning key={`${board.id}-${boardView}`} board={board} members={members} mode={boardView} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "calendar" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board calendar...</p>}><BoardCalendar key={board.id} board={board} members={members} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "dashboard" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board dashboard...</p>}><BoardDashboard key={board.id} boardId={board.id}/></Suspense></ScreenBoundary> : <>
               <BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/>
               <p className="drag-hint">Drag cards between lists or list headers to reorder. Position controls are available in card and list settings.</p>
               <div className="lists">

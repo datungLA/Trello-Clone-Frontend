@@ -1,0 +1,57 @@
+.board-subbar { flex-wrap: wrap; align-items: center; }
+.board-subbar .board-view-switch { display: flex; flex: 1 1 440px; max-width: 100%; min-width: 0; flex-wrap: nowrap; gap: 4px; overflow-x: auto; padding: 3px; }
+.board-subbar .board-view-switch > button { flex: 0 0 auto; min-height: 44px; white-space: nowrap; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 13px; border-radius: 7px; }
+.board-subbar .board-view-switch > button[aria-pressed="true"] { color: var(--text); border-color: var(--line); background: var(--surface); font-weight: 600; }
+.board-subbar .board-view-switch > button:focus-visible { outline: 3px solid #579dff; outline-offset: -2px; }
+.board-planning { padding: 28px; width: 100%; min-width: 0; color: var(--text); }
+.board-planning-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.board-planning-heading h2 { display: flex; align-items: center; gap: 10px; font-size: 26px; margin: 5px 0; }
+.board-planning-heading h2 > svg { color: #0065ff; }
+.board-planning-heading p { color: var(--muted); font-size: 13px; margin: 0; max-width: 680px; }
+.board-planning-heading > button { min-height: 44px; flex-shrink: 0; }
+.board-planning-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.board-planning-filters .search { flex: 1 1 260px; min-width: 0; }
+.board-planning-filters .search input { min-height: 44px; width: 100%; }
+.planning-member { flex: 0 1 240px; min-width: 0; }
+.planning-member > span:first-child { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.planning-member select { min-height: 44px !important; }
+.board-planning-filters > button { min-height: 44px; }
+.board-planning-scope { font-size: 12px; color: var(--muted); margin: 10px 0; }
+.board-planning-status { font-size: 13px; min-height: 20px; margin: 8px 0; }
+.board-planning-error { padding: 12px; border: 1px solid #cf5b50; border-radius: 8px; background: var(--surface); }
+.planning-scroll { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.planning-scroll:focus-visible, .board-planning button:focus-visible { outline: 3px solid #579dff; outline-offset: 2px; }
+.planning-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 780px; }
+.planning-table caption { text-align: left; color: var(--muted); font-size: 12px; padding: 14px; border-bottom: 1px solid var(--line); }
+.planning-table thead { background: var(--surface-soft); }
+.planning-table thead th { font-weight: 600; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.planning-table thead button { background: transparent; border: 0; padding: 8px 6px; min-height: 44px; }
+.planning-table tbody th, .planning-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.planning-table tbody tr:last-child > * { border-bottom: 0; }
+.planning-table tbody th { min-width: 220px; max-width: 340px; }
+.planning-table td { max-width: 230px; overflow-wrap: anywhere; }
+.planning-card-link { text-align: left; justify-content: start; font-weight: 600; background: transparent; border: 0; padding: 6px 0; min-height: 44px; overflow-wrap: anywhere; }
+.planning-status-label { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border-radius: 5px; background: var(--surface-soft); white-space: nowrap; font-size: 12px; }
+.board-planning-empty { padding: 20px; font-size: 13px; color: var(--muted); }
+.planning-timeline-month { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.planning-timeline-month h3 { margin: 0; min-width: 155px; font-size: 18px; text-align: center; }
+.planning-timeline-month button { min-height: 44px; min-width: 44px; }
+.planning-timeline { min-width: calc(190px + var(--timeline-days) * 24px); }
+.planning-timeline-header, .planning-timeline-row { display: flex; min-width: 0; }
+.planning-timeline-header { background: var(--surface-soft); border-bottom: 1px solid var(--line); font-size: 12px; }
+.planning-timeline-header > strong { flex: 0 0 190px; width: 190px; padding: 13px 12px; }
+.planning-timeline-days { display: grid; grid-template-columns: repeat(var(--timeline-days), minmax(0, 1fr)); align-items: center; flex: 1; }
+.planning-timeline-days > span { text-align: center; border-left: 1px solid var(--line); color: var(--muted); }
+.planning-timeline-row + .planning-timeline-row { border-top: 1px solid var(--line); }
+.planning-timeline-label { flex: 0 0 190px; width: 190px; min-height: 66px; background: transparent; border: 0; border-right: 1px solid var(--line); border-radius: 0; align-items: start; flex-direction: column; justify-content: center; padding: 10px 12px; gap: 4px; text-align: left; overflow-wrap: anywhere; }
+.planning-timeline-label strong { font-size: 13px; }
+.planning-timeline-label strong svg { vertical-align: middle; margin-right: 4px; }
+.planning-timeline-label small { color: var(--muted); font-size: 11px; }
+.planning-timeline-track { position: relative; flex: 1; min-width: 0; background-image: linear-gradient(to right, var(--line) 1px, transparent 1px); background-size: calc(100% / var(--timeline-days)) 100%; }
+.planning-timeline-bar { position: absolute; top: 11px; min-height: 44px; min-width: 8px; padding: 0 5px; border: 0; border-radius: 5px; background: #0065ff !important; color: #fff !important; text-align: left; justify-content: start; max-width: 100%; overflow: hidden; }
+.planning-timeline-bar:hover { background: #0052cc !important; }
+.planning-timeline-bar.complete { background: #216e4e !important; }
+.planning-timeline-bar span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.planning-undated { margin-top: 20px; border: 1px dashed var(--line); padding: 16px; border-radius: 8px; font-size: 13px; }
+.planning-undated p { color: var(--muted); margin: 4px 0 0; }
+@media (max-width: 700px) { .board-planning { padding: 20px 16px; } .board-planning-heading { align-items: start; flex-wrap: wrap; } .board-planning-heading h2 { font-size: 22px; } .planning-member { flex: 1 1 100%; } .planning-timeline-month h3 { min-width: 130px; font-size: 17px; } }
