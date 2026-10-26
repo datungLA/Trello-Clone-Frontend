@@ -363,6 +363,9 @@ function App() {
   const returnToTasks = useRef(false);
   const workspace = workspaces.find((w) => w.id === workspaceId);
   useEffect(() => {
+    document.querySelector('.board-view-switch button[aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+  }, [boardView, board?.id]);
+  useEffect(() => {
     document.documentElement.dataset.theme = user ? theme : "light";
     return () => { delete document.documentElement.dataset.theme; };
   }, [theme, user?.id]);
