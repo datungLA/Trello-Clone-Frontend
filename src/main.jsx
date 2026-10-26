@@ -5,8 +5,9 @@ import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
 import Notifications from "./notifications";
-import { Archive, ArrowRight, Check, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
+import { Archive, ArrowRight, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, SquareKanban, Star, UsersRound, X } from "lucide-react";
 import "./styles.css";
+const MyTasks = lazy(() => import("./my-tasks"));
 const AdminPanel = lazy(() => import("./admin"));
 const SessionsPanel = lazy(() => import("./sessions"));
 const SetupPage = lazy(() => import("./setup"));
@@ -354,6 +355,7 @@ function App() {
   const [cardDraft, setCardDraft] = useState(null);
   const [invitation, setInvitation] = useState(null);
   const navigation = useRef(0);
+  const returnToTasks = useRef(false);
   const workspace = workspaces.find((w) => w.id === workspaceId);
   useEffect(() => {
     document.documentElement.dataset.theme = user ? theme : "light";
@@ -432,6 +434,10 @@ function App() {
         setError(err.message);
       }
     } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false);
+    else if (path[0] === "my-tasks") {
+      navigation.current++;
+      setBoard(null); setCardId(null); setView("tasks"); setLoading(false);
+    }
     else if (
       path[0] === "invite" ||
       new URLSearchParams(location.search).has("invite")
@@ -440,6 +446,7 @@ function App() {
     else {
       setBoard(null);
       setCardId(null);
+      setView("boards");
     }
   }
   async function openBoard(id, navigate = true) {
@@ -460,6 +467,7 @@ function App() {
         method: "PATCH",
         body: { lastOpenedAt: true },
       }).catch(() => {});
+      return b;
     } catch (err) {
       setError(err.message);
     } finally {
@@ -481,7 +489,8 @@ function App() {
     setCardId(null);
     setView(nextView);
     setSearch("");
-    history.pushState({}, "", "/");
+    setLoading(false);
+    history.pushState({}, "", nextView === "tasks" ? "/my-tasks" : "/");
   }
   function signOutLocally(message = "") {
     setAuthMessage(typeof message === "string" ? message : "");
@@ -508,11 +517,25 @@ function App() {
     }
   }
   function showCard(c) {
+    returnToTasks.current = false;
     setCardId(c.id);
     setCardDraft({ ...c });
     history.pushState({}, "", `/cards/${c.id}`);
   }
+  async function openTask(card) {
+    const opened = await openBoard(card.boardId, false);
+    if (!opened) throw new Error("This board could not be opened. Refresh your tasks and try again.");
+    const serial = navigation.current;
+    let detail;
+    try { detail = await api(`/cards/${card.id}`); }
+    catch (err) { if (serial === navigation.current) setError(err.message); throw err; }
+    if (serial !== navigation.current) return;
+    returnToTasks.current = true;
+    setCardId(detail.id); setCardDraft(detail);
+    history.pushState({}, "", `/cards/${detail.id}`);
+  }
   function closeCard() {
+    if (returnToTasks.current) { returnToTasks.current = false; goHome(workspaceId, "tasks"); return; }
     setCardId(null);
     setCardDraft(null);
     history.pushState({}, "", `/boards/${board.id}`);
@@ -661,6 +684,11 @@ function App() {
             </button>
           </div>
           <nav>
+            <button className={!board && view === "tasks" ? "sidebar-link active" : "sidebar-link"}
+              onClick={() => goHome(workspaceId, "tasks")}>
+              <ClipboardList size={20} strokeWidth={1.7} aria-hidden="true" />
+              My tasks
+            </button>
             <button
               className={
                 !board && view === "boards"
@@ -760,7 +788,13 @@ function App() {
           {loading && (
             <div className="loading-line" role="status" aria-label="Loading" />
           )}
-          {board ? (
+          {!board && view === "tasks" ? (
+            <ScreenBoundary onBack={() => goHome()}>
+              <Suspense fallback={<p role="status">Loading your tasks...</p>}>
+                <MyTasks key={user.id} onOpenCard={openTask}/>
+              </Suspense>
+            </ScreenBoundary>
+          ) : board ? (
             <>
               <div className="board-toolbar">
                 <div className="board-title">

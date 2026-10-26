@@ -1,0 +1,50 @@
+.my-tasks { max-width: 1180px; width: 100%; margin: 0 auto; }
+.my-tasks-summary { display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-bottom: 24px; }
+.my-tasks-summary-icon { color: #0065ff; background: #deebff; border-radius: 10px; padding: 12px; display: flex; }
+.my-tasks-summary strong { font-size: 20px; }
+.my-tasks-summary p { color: var(--muted); margin: 2px 0 0; }
+.my-tasks-filters { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.my-tasks-filters .search { flex: 1 1 280px; min-width: 0; }
+.my-tasks-filters .search input { width: 100%; min-height: 44px; }
+.my-tasks-board-filter { flex: 0 1 260px; min-width: 0; }
+.my-tasks-board-filter > span:first-child { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.my-tasks-board-filter select { min-height: 44px !important; }
+.my-tasks-filters > button { min-height: 44px; }
+.my-tasks-status { color: var(--muted); font-size: 13px; min-height: 20px; margin: 12px 0 24px; }
+.my-tasks-error { border: 1px solid #cf5b50; border-radius: 8px; padding: 12px; margin-top: 16px; background: var(--surface); color: var(--text); }
+.my-tasks-empty { text-align: center; padding: 48px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.my-tasks-empty > svg { color: #0065ff; }
+.my-tasks-empty h2 { margin: 16px 0 8px; }
+.my-tasks-empty p { color: var(--muted); max-width: 430px; margin: auto; }
+.my-tasks-group { margin-bottom: 28px; }
+.my-tasks-group-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 10px; }
+.my-tasks-group-heading h2 { display: flex; align-items: center; gap: 8px; font-size: 16px; margin: 0; }
+.my-tasks-group-heading h2 > span { border-radius: 6px; background: var(--surface-soft); color: var(--muted); font-size: 12px; padding: 2px 7px; }
+.my-tasks-group-heading p { color: var(--muted); font-size: 12px; margin: 0; }
+.my-tasks-group ul { padding: 0; margin: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.my-tasks-group li { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 10px 12px 10px 4px; }
+.my-tasks-group li + li { border-top: 1px solid var(--line); }
+.my-task-toggle { min-width: 44px; min-height: 44px; padding: 10px; border: 0; background: transparent; }
+.my-task-toggle > span { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--muted); border-radius: 50%; }
+.my-task-toggle[aria-pressed="true"] > span { background: #0065ff; border-color: #0065ff; color: #fff; }
+.my-task-open { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: start; gap: 4px; text-align: left; background: transparent; border: 0; min-height: 52px; padding: 6px 8px; }
+.my-task-open strong { font-size: 14px; overflow-wrap: anywhere; }
+.my-task-open > span { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.my-task-open > span svg { flex-shrink: 0; }
+.my-task-due { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.my-tasks-overdue .my-task-due { color: #b83b30; font-weight: 600; }
+.my-tasks-overdue ul { border-left: 3px solid #cf5b50; }
+.my-tasks-group .is-complete .my-task-open strong { text-decoration: line-through; color: var(--muted); }
+.my-tasks button:focus-visible { outline: 3px solid #579dff; outline-offset: 2px; }
+@media (max-width: 640px) {
+  .my-tasks-group-heading { display: block; }
+  .my-tasks-group-heading p { margin-top: 4px; }
+  .my-tasks-group li { flex-wrap: wrap; padding-right: 10px; }
+  .my-task-open { flex-basis: calc(100% - 52px); }
+  .my-task-due { margin-left: 56px; padding-bottom: 6px; }
+  .my-tasks-board-filter { flex: 1 1 100%; }
+  .my-tasks-filters .search { flex-basis: 100%; }
+}
+
+:root[data-theme="dark"] .my-tasks-overdue .my-task-due { color: #ff9c8f; }
+@media (prefers-color-scheme: dark) { :root[data-theme="system"] .my-tasks-overdue .my-task-due { color: #ff9c8f; } }
