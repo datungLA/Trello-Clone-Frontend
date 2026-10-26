@@ -1,0 +1,70 @@
+.board-calendar { width: 100%; padding: 28px; color: var(--text); }
+.board-calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.board-calendar-heading h2 { display: flex; align-items: center; gap: 10px; font-size: 26px; margin: 5px 0; }
+.board-calendar-heading h2 svg { color: #0065ff; }
+.board-calendar-heading p { color: var(--muted); margin: 0; font-size: 13px; max-width: 650px; }
+.board-calendar-heading > button { flex-shrink: 0; min-height: 44px; }
+.board-calendar-controls { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+.board-calendar-month { display: flex; align-items: center; gap: 8px; }
+.board-calendar-month h3 { min-width: 155px; text-align: center; margin: 0; font-size: 19px; }
+.board-calendar-month > button { min-height: 44px; min-width: 44px; }
+.board-calendar-member { width: 220px; max-width: 100%; }
+.board-calendar-member > span:first-child { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.board-calendar-member select { min-height: 44px !important; }
+.board-calendar-hint { color: var(--muted); font-size: 12px; margin-bottom: 0; }
+.board-calendar-status { min-height: 20px; margin: 8px 0; font-size: 13px; }
+.board-calendar-error { padding: 12px; margin: 12px 0; border: 1px solid #cf5b50; border-radius: 8px; background: var(--surface); }
+.board-calendar-editor { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 12px 0 20px; padding: 16px; border: 1px solid #579dff; border-radius: 10px; background: var(--surface); }
+.board-calendar-editor > div { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.board-calendar-editor p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.board-calendar-editor > label { font-size: 12px; font-weight: 600; width: 180px; }
+.board-calendar-editor input { margin-top: 4px; min-height: 44px; }
+.board-calendar-editor > button { min-height: 44px; }
+.board-calendar-weekdays, .board-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.board-calendar-weekdays { margin-top: 18px; }
+.board-calendar-weekdays > span { padding: 10px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.board-calendar-grid { border-top: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.board-calendar-day { min-width: 0; min-height: 155px; padding: 8px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
+.board-calendar-day.outside-month { background: var(--surface-soft); }
+.board-calendar-day.outside-month h4 { color: var(--muted); }
+.board-calendar-day h4 { font-size: 12px; font-weight: 600; margin: 0 0 10px; }
+.board-calendar-day.is-today h4 .calendar-grid-date { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: #0065ff; color: #fff; border-radius: 50%; }
+.board-calendar-day.is-drop-target { outline: 3px solid #579dff; outline-offset: -3px; background: var(--surface-soft); }
+.board-calendar-day ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.board-calendar-day li { min-width: 0; padding: 3px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.board-calendar-day li.calendar-drag-source { opacity: .5; outline: 2px dashed #579dff; }
+.board-calendar-card-top { display: flex; align-items: start; }
+.calendar-drag-handle { padding: 5px 2px; min-height: 36px; min-width: 24px; border: 0; background: transparent; color: var(--muted); cursor: grab; }
+.calendar-drag-handle:active { cursor: grabbing; }
+.calendar-card-title { min-width: 0; flex: 1; display: block; padding: 8px 3px; border: 0; background: transparent; text-align: left; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; min-height: 36px; }
+.calendar-card-title > svg { vertical-align: middle; margin-right: 3px; }
+.board-calendar-day .is-complete .calendar-card-title { text-decoration: line-through; }
+.calendar-card-list { display: block; color: var(--muted); font-size: 10px; padding: 2px 5px; overflow-wrap: anywhere; }
+.calendar-reschedule { font-size: 11px; width: 100%; min-height: 36px; padding: 5px 2px; background: transparent; border: 0; text-align: left; justify-content: start; color: var(--text); }
+.board-calendar-empty, .board-calendar-undated { padding: 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 13px; margin-top: 18px; }
+.board-calendar-undated strong { color: var(--text); }
+.board-calendar-undated p { margin: 4px 0 0; }
+.calendar-mobile-date { display: none; }
+.board-calendar button:focus-visible { outline: 3px solid #579dff; outline-offset: 2px; }
+@media (max-width: 1050px) { .board-calendar { padding: 20px 14px; } .board-calendar-day { padding: 5px; } }
+@media (max-width: 700px) {
+  .board-calendar-heading { flex-wrap: wrap; align-items: start; }
+  .board-calendar-heading h2 { font-size: 22px; }
+  .board-calendar-month { flex-wrap: wrap; width: 100%; }
+  .board-calendar-month h3 { min-width: 130px; font-size: 17px; }
+  .board-calendar-member { width: 100%; }
+  .board-calendar-weekdays, .calendar-grid-date { display: none !important; }
+  .calendar-mobile-date { display: inline; }
+  .board-calendar-grid { display: block; border: 0; background: transparent; margin-top: 16px; }
+  .board-calendar-day { display: none; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 16px; min-height: 0; padding: 12px; }
+  .board-calendar-day.current-month { display: block; }
+  .board-calendar-day.has-cards:not(.outside-month) { display: block; }
+  .board-calendar-day.is-today h4 { color: var(--text); }
+  .board-calendar-card-top { align-items: center; }
+  .calendar-drag-handle, .calendar-card-title, .calendar-reschedule { min-height: 44px; }
+  .calendar-drag-handle { min-width: 44px; }
+  .calendar-card-title { font-size: 14px; }
+  .calendar-card-list { padding-left: 8px; font-size: 12px; }
+  .calendar-reschedule { padding-left: 8px; font-size: 12px; }
+  .board-calendar-editor > label { flex: 1 1 180px; }
+}
