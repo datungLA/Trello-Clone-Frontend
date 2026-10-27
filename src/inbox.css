@@ -1,5 +1,7 @@
 .inbox-page { max-width: 1120px; margin: 0 auto; padding: 40px 32px 48px; min-width: 0; }
 .inbox-page button, .inbox-page input, .inbox-page .select-trigger, .inbox-dialog button, .inbox-dialog input, .inbox-dialog .select-trigger { min-height: 44px; }
+:root[data-theme] .inbox-page .primary, :root[data-theme] .inbox-dialog .primary { background: #0065ff; border-color: #0065ff; color: #fff; }
+:root[data-theme] .inbox-page .primary:hover, :root[data-theme] .inbox-dialog .primary:hover { background: #0052cc; border-color: #0052cc; }
 .inbox-heading { display: flex; gap: 20px; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
 .inbox-heading h1 { font-size: 32px; letter-spacing: -.8px; margin: 10px 0 7px; }
 .inbox-heading p { color: var(--muted); margin: 0; font-size: 14px; }
