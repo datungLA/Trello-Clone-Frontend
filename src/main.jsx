@@ -5,9 +5,12 @@ import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
 import Notifications from "./notifications";
-import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Plus, Search, ShieldCheck, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
+import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Menu, SlidersHorizontal, Plus, Search, ShieldCheck, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
 import "./styles.css";
 import "./board-planning.css";
+import { MobileBoardPicker, MobileOverlay, ResponsiveFilters, useCompactShell } from "./mobile-shell";
+import { installMobileBoardDrag } from "./mobile-board-drag";
+import "./mobile-board.css";
 const BoardPlanning = lazy(() => import("./board-planning"));
 const BoardCalendar = lazy(() => import("./board-calendar"));
 const BoardDashboard = lazy(() => import("./board-dashboard"));
@@ -54,14 +57,16 @@ function Logo() {
 function Modal({ title, children, onClose, wide = false }) {
   const dialog = useRef(null);
   useEffect(() => {
+    const previous = document.activeElement;
     dialog.current.showModal();
+    return () => { if (previous?.isConnected) previous.focus(); };
   }, []);
   return (
     <dialog
       ref={dialog}
       aria-label={title}
       onCancel={onClose}
-      className={wide ? "modal wide" : "modal"}
+      className={`${wide ? "modal wide" : "modal"}${title === "Card details" ? " modal-card-details" : ""}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           const r = e.currentTarget.getBoundingClientRect();
@@ -333,6 +338,10 @@ function Auth({ onLogin, onSignedOut, initialMode, initialMessage = "" }) {
 }
 
 function App() {
+  const { compact, short, online } = useCompactShell();
+  const [mobilePanel, setMobilePanel] = useState(null);
+  const mobileLists = useRef(null);
+  const mobileDrag = useRef(null);
   const [user, setUser] = useState(null);
   const [notification, setNotification] = useState("");
   const [authMessage, setAuthMessage] = useState("");
@@ -507,6 +516,16 @@ function App() {
       },
     });
   }
+  async function openNotificationCard(id) {
+    const card = await api(`/cards/${id}`);
+    await openBoard(card.boardId, false);
+    setCardId(card.id); setCardDraft(card);
+    history.pushState({}, "", `/cards/${id}`);
+  }
+  function openMobileFilters() {
+    if (board && boardView !== "board") { setBoardView("board"); setArchiveOpen(false); history.pushState({}, "", `/boards/${board.id}`); }
+    setMobilePanel("filters");
+  }
   function goHome(id = workspaceId, nextView = "boards") {
     if (location.hostname === "trello-admin.learnvibecode.online") { location.assign("https://trello-app.learnvibecode.online/"); return; }
     setAdminOpen(false);
@@ -605,6 +624,22 @@ function App() {
       setDropTarget("");
     }
   }
+  mobileDrag.current = { board, busy, moveCard, mutate, refreshBoard };
+  useEffect(() => {
+    if (!mobileLists.current || !board || boardView !== "board") return;
+    return installMobileBoardDrag(mobileLists.current, {
+      disabled: () => !compact || mobileDrag.current.busy || mobileDrag.current.board?.closed,
+      onStart: item => setDraggedItem(`${item.type}-${item.id}`),
+      onTarget: target => setDropTarget(target ? target.cardId ? `card-${target.cardId}` : `list-${target.listId}` : ""),
+      onDrop: async (item, target) => {
+        const current = mobileDrag.current;
+        if (current.busy || current.board?.closed || !target) return;
+        if (item.type === "card") await current.moveCard(item.id, target.listId, target.position);
+        else await current.mutate(async () => { await api(`/lists/${item.id}/move`, { method: "POST", body: { position: target.position } }); await current.refreshBoard(); });
+      },
+      onEnd: () => { setDraggedItem(null); setDropTarget(""); },
+    });
+  }, [board?.id, boardView, compact]);
   if (booting)
     return (
       <div className="boot">
@@ -635,7 +670,17 @@ function App() {
       b.title.toLowerCase().includes(search.toLowerCase()),
   );
   return (
-    <div className="app" data-theme={theme}>
+    <div className={`app${board ? " has-board" : ""}`} data-theme={theme}>
+      <header className="mobile-appbar" aria-label="Compact workspace toolbar">
+        <button aria-label="Switch workspace or board" onClick={() => setMobilePanel("navigation")}><Menu size={21}/></button>
+        <button className="mobile-appbar-title" aria-label={board ? `Current board: ${board.title}. Switch board` : "Choose a workspace or board"} onClick={() => setMobilePanel("navigation")}><span>{short && board ? board.title : workspace?.name || "Your workspace"}</span></button>
+        {compact && <Notifications userId={user.id} onOpenCard={openNotificationCard}/>}
+        {!board && <button className="mobile-compact-action" aria-label="Find a board" onClick={() => setMobilePanel("navigation")}><Search size={20}/></button>}
+        {board && <button className="mobile-compact-action" aria-label="Filter board and saved views" onClick={openMobileFilters}><SlidersHorizontal size={20}/></button>}
+        <button aria-label="Open workspace and board actions" onClick={() => setMobilePanel("actions")}><MoreHorizontal size={21}/></button>
+        <button className="avatar" aria-label="Open profile" onClick={() => setModal("profile")}>{user.displayName?.slice(0, 2).toUpperCase()}</button>
+      </header>
+      {!online && <div className="offline-indicator" role="status">You're offline. Changes are not synchronized until a save succeeds. Keep your draft and retry when connected.</div>}
       <header className="topbar">
         <button
           className="brand-button"
@@ -664,7 +709,7 @@ function App() {
         <div className="topbar-spacer" />
         {user.isAdmin && <button className="nav-link admin-entry" aria-label="Administration" onClick={() => {if (location.hostname === "trello-app.learnvibecode.online") { location.assign("https://trello-admin.learnvibecode.online/admin"); return; } setModal(null);setAdminOpen(true);history.pushState({}, "", "/admin");}}><ShieldCheck className="admin-entry-icon" size={18} aria-hidden="true"/><span className="admin-entry-label">Administration</span></button>}
         <span className="dev-badge">DEV WORKSPACE</span>
-        <Notifications userId={user.id} onOpenCard={async id => { const card = await api(`/cards/${id}`); await openBoard(card.boardId, false); setCardId(card.id); setCardDraft(card); history.pushState({}, "", `/cards/${id}`); }}/>
+        {!compact && <Notifications userId={user.id} onOpenCard={openNotificationCard}/>}
         <button
           className="avatar"
           aria-label="Open profile"
@@ -823,6 +868,7 @@ function App() {
             </ScreenBoundary>
           ) : board ? (
             <>
+              <div className="mobile-boardbar"><h1 title={board.title}>{board.title}</h1><button aria-label="Search and filter board cards" onClick={openMobileFilters}><SlidersHorizontal size={20}/></button><button aria-label="Board views and actions" onClick={() => setMobilePanel("actions")}><MoreHorizontal size={20}/></button></div>
               <div className="board-toolbar">
                 <div className="board-title">
                   <h1>{board.title}</h1>
@@ -902,13 +948,15 @@ function App() {
                 </label>}
               </div>
               {["table", "timeline"].includes(boardView) ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board view...</p>}><BoardPlanning key={`${board.id}-${boardView}`} board={board} members={members} mode={boardView} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "calendar" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board calendar...</p>}><BoardCalendar key={board.id} board={board} members={members} onOpenCard={showCard} onRefresh={refreshBoard}/></Suspense></ScreenBoundary> : boardView === "dashboard" ? <ScreenBoundary onBack={() => { setBoardView("board"); history.pushState({}, "", `/boards/${board.id}`); }}><Suspense fallback={<p role="status">Loading board dashboard...</p>}><BoardDashboard key={board.id} boardId={board.id}/></Suspense></ScreenBoundary> : <>
-              <BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/>
+              <ResponsiveFilters compact={compact} open={mobilePanel === "filters"} onClose={() => setMobilePanel(null)} search={search} onSearch={setSearch}><BoardFilters key={board.id} board={board} members={members} filters={{...cardFilters, query: search}} onChange={value => {setSearch(value.query || "");setCardFilters(value);}} onError={setError}/></ResponsiveFilters>
               <p className="drag-hint">Drag cards between lists or list headers to reorder. Position controls are available in card and list settings.</p>
-              <div className="lists" tabIndex={0} role="region" aria-label="Board lists. Scroll horizontally to explore lists.">
+              <div ref={mobileLists} className="lists" tabIndex={0} role="region" aria-label="Board lists. Scroll horizontally to explore lists.">
                 {visibleLists.map((list, index) => (
                   <section
                     className={`list ${list.wipLimit && list.cards.filter(c=>!c.archived).length > list.wipLimit ? "over-limit" : ""} ${dropTarget === `list-${list.id}` ? "drop-target" : ""}`}
                     key={list.id}
+                    data-mobile-list-id={list.id}
+                    data-mobile-list-position={index}
                     onDragOver={(e) => { e.preventDefault(); setDropTarget(`list-${list.id}`); }}
                     onDrop={(e) =>
                       drop(
@@ -925,7 +973,7 @@ function App() {
                         { setDraggedItem(`list-${list.id}`); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", JSON.stringify({ type: "list", id: list.id })); }
                       }
                     >
-                      <GripVertical className="drag-grip" size={16} aria-hidden="true"/>
+                      <GripVertical className="drag-grip" size={16} aria-hidden="true" data-mobile-drag-type="list" data-mobile-drag-id={list.id}/>
                       <h2>{list.title}</h2>
                       <span className="list-count">
                         {list.cards.filter((c) => !c.archived).length}{list.wipLimit ? ` / ${list.wipLimit}` : ""}
@@ -954,6 +1002,8 @@ function App() {
                           <button
                             className={`task-card ${dropTarget === `card-${c.id}` ? "drop-target" : ""} ${draggedItem === `card-${c.id}` ? "dragging" : ""}`}
                             key={c.id}
+                            data-mobile-card-id={c.id}
+                            data-mobile-card-position={list.cards.filter(card => !card.archived).sort((a,b) => a.position-b.position).findIndex(card => card.id === c.id)}
                             draggable={!board.closed && !busy}
                             onDragStart={(e) => {
                               e.stopPropagation();
@@ -979,7 +1029,7 @@ function App() {
                             }}
                             onClick={() => showCard(c)}
                           >
-                            <GripVertical className="drag-grip card-drag-grip" size={15} aria-hidden="true"/>
+                            <GripVertical className="drag-grip card-drag-grip" size={15} aria-hidden="true" data-mobile-drag-type="card" data-mobile-drag-id={c.id}/>
                             <CardBadges card={c} labels={board.labels || []} members={members}/>
                             {c.description && (
                               <span className="card-meta">
@@ -1227,6 +1277,13 @@ function App() {
           )}
         </main>
       </div>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation"><button aria-current={!board && view === "boards" ? "page" : undefined} onClick={() => goHome()}><LayoutGrid size={20}/>Boards</button><button aria-current={!board && view === "tasks" ? "page" : undefined} onClick={() => goHome(workspaceId, "tasks")}><ClipboardList size={20}/>My tasks</button><button aria-current={modal === "profile" ? "page" : undefined} onClick={() => setModal("profile")}><UsersRound size={20}/>Profile</button></nav>
+      {mobilePanel === "navigation" && <MobileBoardPicker workspaces={workspaces} workspaceId={workspaceId} boardId={board?.id} onWorkspace={id => goHome(id)} onBoard={openBoard} onCreate={() => setModal("workspace")} onClose={() => setMobilePanel(null)}/>}
+      {mobilePanel === "actions" && <MobileOverlay title={board ? "Board views and actions" : "Workspace actions"} onClose={() => setMobilePanel(null)}><div className="mobile-board-actions">
+        {board && <><p className="mobile-full-board-title"><strong>{board.title}</strong></p><h3>Views</h3>{[["board", "Board", LayoutGrid], ["calendar", "Calendar", CalendarDays], ["table", "Table", Table2], ["timeline", "Timeline", GanttChart], ["dashboard", "Dashboard", ChartNoAxesCombined]].map(([id, label, ViewIcon]) => <button key={id} aria-pressed={boardView === id} onClick={() => {setBoardView(id);setArchiveOpen(false);setMobilePanel(null);history.pushState({}, "", `/boards/${board.id}${id === "board" ? "" : `/${id}`}`);}}><ViewIcon size={18}/>{label}</button>)}<h3>Board actions</h3><button onClick={openMobileFilters}><SlidersHorizontal size={18}/>Search, filters and saved views</button><button onClick={() => {setMobilePanel(null);setModal("members");}}><UsersRound size={18}/>Share and members</button><button onClick={() => {setMobilePanel(null);setBoardView("board");setArchiveOpen(true);}}><Archive size={18}/>Archived items</button><button onClick={() => {setMobilePanel(null);setModal("board-settings");}}><MoreHorizontal size={18}/>Board settings</button></>}
+        <h3>Your workspace</h3><button onClick={() => {setMobilePanel(null);goHome();}}><LayoutGrid size={18}/>Boards</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"tasks");}}><ClipboardList size={18}/>My tasks</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"members");}}><UsersRound size={18}/>Workspace members</button><button onClick={() => {setMobilePanel(null);setModal(workspaceId ? "board" : "workspace");}}><Plus size={18}/>Create {workspaceId ? "board" : "workspace"}</button><button onClick={() => {setMobilePanel(null);setModal("profile");}}><UsersRound size={18}/>Profile and account</button>
+        {user.isAdmin && <button onClick={() => {setMobilePanel(null);if(location.hostname === "trello-app.learnvibecode.online")location.assign("https://trello-admin.learnvibecode.online/admin");else{setAdminOpen(true);history.pushState({}, "", "/admin");}}}><ShieldCheck size={18}/>Administration</button>}
+      </div></MobileOverlay>}
       {cardId && cardDraft && board && (
         <Modal title="Card details" onClose={closeCard} wide>
           <CardEditor key={cardId} card={cardDraft} board={board} boards={boards.some(b=>b.id===board.id)?boards:[board,...boards]} members={members} user={user} onClose={closeCard} onRefresh={refreshBoard}/>

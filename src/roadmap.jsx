@@ -103,6 +103,7 @@ export function CardEditor({ card, board, boards, members, user, onClose, onRefr
     <p className="muted">{board.title} / {board.lists.find(l=>l.id===card.listId)?.title}{card.archived?" / Archived":""}</p>
     {draft.coverColor&&<div className="detail-cover" style={{background:draft.coverColor}} aria-hidden="true"/>}
     <form onSubmit={save}>
+      <div className="mobile-card-actions"><button className="primary" disabled={disabled || card.archived}>{busy ? "Saving..." : "Save card"}</button></div>
       <fieldset disabled={disabled || card.archived} className="editor-fieldset">
         <Entry label="Title"><input required maxLength={200} value={draft.title} onChange={e=>change({title:e.target.value})}/></Entry>
         <Entry label="Description"><textarea rows={4} maxLength={10000} placeholder="Context, ideas, and next steps..." value={draft.description||""} onChange={e=>change({description:e.target.value})}/></Entry>

@@ -24,7 +24,12 @@ export default function Notifications({ userId, onOpenCard }) {
     addEventListener("focus", update);
     return () => { clearInterval(timer); removeEventListener("focus", update); };
   }, [refresh]);
-  useEffect(() => { if (open) { dialog.current?.showModal(); refresh(); } }, [open, refresh]);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement;
+    dialog.current?.showModal(); refresh();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, [open, refresh]);
   async function act(path, method, body, message) {
     setBusy(true); setError(""); setNotice("");
     try { await api(path, { method, body }); await refresh(); setNotice(message); return true; }
