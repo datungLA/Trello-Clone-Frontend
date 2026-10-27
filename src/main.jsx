@@ -5,7 +5,7 @@ import { BoardFilters, CardEditor, CardBadges, matchesFilters, OwnershipTransfer
 import { ConfirmDialog } from "./confirm";
 import { Select } from "./select";
 import Notifications from "./notifications";
-import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Menu, SlidersHorizontal, Plus, Search, ShieldCheck, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
+import { Archive, ArrowRight, CalendarDays, ChartNoAxesCombined, Check, ClipboardList, ChevronDown, GripVertical, LayoutGrid, LockKeyhole, MoreHorizontal, Menu, Inbox as InboxIcon, SlidersHorizontal, Plus, Search, ShieldCheck, SquareKanban, Star, Table2, GanttChart, UsersRound, X } from "lucide-react";
 import "./styles.css";
 import "./board-planning.css";
 import { MobileBoardPicker, MobileOverlay, ResponsiveFilters, useCompactShell } from "./mobile-shell";
@@ -15,6 +15,7 @@ const BoardPlanning = lazy(() => import("./board-planning"));
 const BoardCalendar = lazy(() => import("./board-calendar"));
 const BoardDashboard = lazy(() => import("./board-dashboard"));
 const MyTasks = lazy(() => import("./my-tasks"));
+const Inbox = lazy(() => import("./inbox"));
 const AdminPanel = lazy(() => import("./admin"));
 const SessionsPanel = lazy(() => import("./sessions"));
 const SetupPage = lazy(() => import("./setup"));
@@ -369,7 +370,7 @@ function App() {
   const [cardDraft, setCardDraft] = useState(null);
   const [invitation, setInvitation] = useState(null);
   const navigation = useRef(0);
-  const returnToTasks = useRef(false);
+  const returnToCollection = useRef("");
   const workspace = workspaces.find((w) => w.id === workspaceId);
   useEffect(() => {
     document.querySelector('.board-view-switch button[aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
@@ -451,9 +452,9 @@ function App() {
         setError(err.message);
       }
     } else if (path[0] === "boards" && path[1]) await openBoard(path[1], false, ["dashboard", "calendar", "table", "timeline"].includes(path[2]) ? path[2] : "board");
-    else if (path[0] === "my-tasks") {
+    else if (["my-tasks", "inbox"].includes(path[0])) {
       navigation.current++;
-      setBoard(null); setCardId(null); setView("tasks"); setLoading(false);
+      setBoard(null); setCardId(null); setView(path[0] === "inbox" ? "inbox" : "tasks"); setLoading(false);
     }
     else if (
       path[0] === "invite" ||
@@ -536,7 +537,7 @@ function App() {
     setView(nextView);
     setSearch("");
     setLoading(false);
-    history.pushState({}, "", nextView === "tasks" ? "/my-tasks" : "/");
+    history.pushState({}, "", nextView === "tasks" ? "/my-tasks" : nextView === "inbox" ? "/inbox" : "/");
   }
   function signOutLocally(message = "") {
     setAuthMessage(typeof message === "string" ? message : "");
@@ -563,12 +564,12 @@ function App() {
     }
   }
   function showCard(c) {
-    returnToTasks.current = false;
+    returnToCollection.current = "";
     setCardId(c.id);
     setCardDraft({ ...c });
     history.pushState({}, "", `/cards/${c.id}`);
   }
-  async function openTask(card) {
+  async function openTask(card, collection = "tasks") {
     const opened = await openBoard(card.boardId, false);
     if (!opened) throw new Error("This board could not be opened. Refresh your tasks and try again.");
     const serial = navigation.current;
@@ -576,12 +577,12 @@ function App() {
     try { detail = await api(`/cards/${card.id}`); }
     catch (err) { if (serial === navigation.current) setError(err.message); throw err; }
     if (serial !== navigation.current) return;
-    returnToTasks.current = true;
+    returnToCollection.current = collection;
     setCardId(detail.id); setCardDraft(detail);
     history.pushState({}, "", `/cards/${detail.id}`);
   }
   function closeCard() {
-    if (returnToTasks.current) { returnToTasks.current = false; goHome(workspaceId, "tasks"); return; }
+    if (returnToCollection.current) { const collection = returnToCollection.current; returnToCollection.current = ""; goHome(workspaceId, collection); return; }
     setCardId(null);
     setCardDraft(null);
     history.pushState({}, "", `/boards/${board.id}${boardView !== "board" ? `/${boardView}` : ""}`);
@@ -756,6 +757,7 @@ function App() {
             </button>
           </div>
           <nav>
+            <button className={!board && view === "inbox" ? "sidebar-link active" : "sidebar-link"} onClick={() => goHome(workspaceId, "inbox")}><InboxIcon size={20} strokeWidth={1.7} aria-hidden="true"/>Inbox</button>
             <button className={!board && view === "tasks" ? "sidebar-link active" : "sidebar-link"}
               onClick={() => goHome(workspaceId, "tasks")}>
               <ClipboardList size={20} strokeWidth={1.7} aria-hidden="true" />
@@ -860,7 +862,9 @@ function App() {
           {loading && (
             <div className="loading-line" role="status" aria-label="Loading" />
           )}
-          {!board && view === "tasks" ? (
+          {!board && view === "inbox" ? (
+            <ScreenBoundary onBack={() => goHome()}><Suspense fallback={<p role="status">Opening your private Inbox...</p>}><Inbox key={user.id} onOpenCard={card => openTask(card, "inbox")}/></Suspense></ScreenBoundary>
+          ) : !board && view === "tasks" ? (
             <ScreenBoundary onBack={() => goHome()}>
               <Suspense fallback={<p role="status">Loading your tasks...</p>}>
                 <MyTasks key={user.id} onOpenCard={openTask}/>
@@ -1277,11 +1281,11 @@ function App() {
           )}
         </main>
       </div>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation"><button aria-current={!board && view === "boards" ? "page" : undefined} onClick={() => goHome()}><LayoutGrid size={20}/>Boards</button><button aria-current={!board && view === "tasks" ? "page" : undefined} onClick={() => goHome(workspaceId, "tasks")}><ClipboardList size={20}/>My tasks</button><button aria-current={modal === "profile" ? "page" : undefined} onClick={() => setModal("profile")}><UsersRound size={20}/>Profile</button></nav>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation"><button aria-current={!board && view === "boards" ? "page" : undefined} onClick={() => goHome()}><LayoutGrid size={20}/>Boards</button><button aria-current={!board && view === "inbox" ? "page" : undefined} onClick={() => goHome(workspaceId, "inbox")}><InboxIcon size={20}/>Inbox</button><button aria-current={!board && view === "tasks" ? "page" : undefined} onClick={() => goHome(workspaceId, "tasks")}><ClipboardList size={20}/>My tasks</button><button aria-current={modal === "profile" ? "page" : undefined} onClick={() => setModal("profile")}><UsersRound size={20}/>Profile</button></nav>
       {mobilePanel === "navigation" && <MobileBoardPicker workspaces={workspaces} workspaceId={workspaceId} boardId={board?.id} onWorkspace={id => goHome(id)} onBoard={openBoard} onCreate={() => setModal("workspace")} onClose={() => setMobilePanel(null)}/>}
       {mobilePanel === "actions" && <MobileOverlay title={board ? "Board views and actions" : "Workspace actions"} onClose={() => setMobilePanel(null)}><div className="mobile-board-actions">
         {board && <><p className="mobile-full-board-title"><strong>{board.title}</strong></p><h3>Views</h3>{[["board", "Board", LayoutGrid], ["calendar", "Calendar", CalendarDays], ["table", "Table", Table2], ["timeline", "Timeline", GanttChart], ["dashboard", "Dashboard", ChartNoAxesCombined]].map(([id, label, ViewIcon]) => <button key={id} aria-pressed={boardView === id} onClick={() => {setBoardView(id);setArchiveOpen(false);setMobilePanel(null);history.pushState({}, "", `/boards/${board.id}${id === "board" ? "" : `/${id}`}`);}}><ViewIcon size={18}/>{label}</button>)}<h3>Board actions</h3><button onClick={openMobileFilters}><SlidersHorizontal size={18}/>Search, filters and saved views</button><button onClick={() => {setMobilePanel(null);setModal("members");}}><UsersRound size={18}/>Share and members</button><button onClick={() => {setMobilePanel(null);setBoardView("board");setArchiveOpen(true);}}><Archive size={18}/>Archived items</button><button onClick={() => {setMobilePanel(null);setModal("board-settings");}}><MoreHorizontal size={18}/>Board settings</button></>}
-        <h3>Your workspace</h3><button onClick={() => {setMobilePanel(null);goHome();}}><LayoutGrid size={18}/>Boards</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"tasks");}}><ClipboardList size={18}/>My tasks</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"members");}}><UsersRound size={18}/>Workspace members</button><button onClick={() => {setMobilePanel(null);setModal(workspaceId ? "board" : "workspace");}}><Plus size={18}/>Create {workspaceId ? "board" : "workspace"}</button><button onClick={() => {setMobilePanel(null);setModal("profile");}}><UsersRound size={18}/>Profile and account</button>
+        <h3>Your workspace</h3><button onClick={() => {setMobilePanel(null);goHome();}}><LayoutGrid size={18}/>Boards</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"inbox");}}><InboxIcon size={18}/>Private Inbox</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"tasks");}}><ClipboardList size={18}/>My tasks</button><button onClick={() => {setMobilePanel(null);goHome(workspaceId,"members");}}><UsersRound size={18}/>Workspace members</button><button onClick={() => {setMobilePanel(null);setModal(workspaceId ? "board" : "workspace");}}><Plus size={18}/>Create {workspaceId ? "board" : "workspace"}</button><button onClick={() => {setMobilePanel(null);setModal("profile");}}><UsersRound size={18}/>Profile and account</button>
         {user.isAdmin && <button onClick={() => {setMobilePanel(null);if(location.hostname === "trello-app.learnvibecode.online")location.assign("https://trello-admin.learnvibecode.online/admin");else{setAdminOpen(true);history.pushState({}, "", "/admin");}}}><ShieldCheck size={18}/>Administration</button>}
       </div></MobileOverlay>}
       {cardId && cardDraft && board && (
