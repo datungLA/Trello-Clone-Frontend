@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { AdminIcon, ConfirmDialog, dateLabel, EmptyRecords, Pagination, RemoteState, useRemote } from "./admin-shared";
 import "./admin.css";
+import BackupPage from "./backup";
 
 const sections = [
   { id: "overview", label: "Overview", icon: "overview" },
@@ -9,10 +10,11 @@ const sections = [
   { id: "workspaces", label: "Workspaces", icon: "workspaces" },
   { id: "boards", label: "Boards", icon: "boards" },
   { id: "audit", label: "Audit history", icon: "audit" },
+  { id: "backup", label: "Backup", icon: "backup" },
 ];
 const sectionFromUrl = () => sections.some(s => s.id === location.pathname.split("/")[2]) ? location.pathname.split("/")[2] : "overview";
-const titleFor = section => ({ overview: "A clear view of your application.", users: "People & access", workspaces: "Workspace directory", boards: "Board directory", audit: "An accountable history." })[section];
-const descriptionFor = section => ({ overview: "Account and workspace health, without opening private work.", users: "Manage application access. Workspace roles remain separate.", workspaces: "Review memberships and manage workspace availability.", boards: "Review board metadata and open or close a board.", audit: "Review recorded administrator actions and their targets." })[section];
+const titleFor = section => ({ overview: "A clear view of your application.", users: "People & access", workspaces: "Workspace directory", boards: "Board directory", audit: "An accountable history.", backup: "Protect your next chapter." })[section];
+const descriptionFor = section => ({ overview: "Account and workspace health, without opening private work.", users: "Manage application access. Workspace roles remain separate.", workspaces: "Review memberships and manage workspace availability.", boards: "Review board metadata and open or close a board.", audit: "Review recorded administrator actions and their targets.", backup: "Private, encrypted backups with a recovery plan." })[section];
 
 export default function AdminPanel({ user, onBack, onSignedOut }) {
   const [section, setSection] = useState(sectionFromUrl);
@@ -44,10 +46,10 @@ export default function AdminPanel({ user, onBack, onSignedOut }) {
   if (!user.isAdmin) return <div className="admin-access-page"><AdminIcon name="lock" size={40}/><span className="eyebrow">APPLICATION ADMINISTRATION</span><h1>This area is restricted.</h1><p>Your account does not have application administrator access.</p><p className="muted">Workspace ownership does not grant application administrator access.</p><button className="primary" onClick={onBack}>Back to your boards</button></div>;
   return <div className="admin-shell"><a className="admin-skip-link" href="#admin-main">Skip to administration content</a>
     <header className="admin-topbar"><button className="admin-brand" onClick={onBack}><AdminIcon name="boards" size={24}/><strong>Trello Clone</strong><span>Admin</span></button><span className="admin-topbar-spacer"/><span className="admin-signed-in">{user.displayName}</span><button onClick={onBack}><AdminIcon name="arrow" size={16}/>Back to boards</button></header>
-    <div className="admin-layout"><aside className="admin-sidebar"><div className="admin-sidebar-heading"><span className="admin-shield"><AdminIcon name="lock" size={20}/></span><div><strong>Application console</strong><small>Restricted access</small></div></div><nav aria-label="Administration">{sections.map(s => <button key={s.id} className={section === s.id ? "admin-nav active" : "admin-nav"} aria-current={section === s.id ? "page" : undefined} onClick={() => navigate(s.id)}><AdminIcon name={s.icon}/>{s.label}</button>)}</nav><p className="admin-sidebar-note">Private card content stays in its workspace. This console manages accounts and metadata.</p></aside>
+    <div className="admin-layout"><aside className="admin-sidebar"><div className="admin-sidebar-heading"><span className="admin-shield"><AdminIcon name="lock" size={20}/></span><div><strong>Application console</strong><small>Restricted access</small></div></div><nav aria-label="Administration">{sections.filter(s => s.id !== "backup" || user.appRole === "super_admin").map(s => <button key={s.id} className={section === s.id ? "admin-nav active" : "admin-nav"} aria-current={section === s.id ? "page" : undefined} onClick={() => navigate(s.id)}><AdminIcon name={s.icon}/>{s.label}</button>)}</nav><p className="admin-sidebar-note">Private card content stays in its workspace. This console manages accounts and metadata.</p></aside>
       <main className="admin-main" id="admin-main" tabIndex={-1}><div className="admin-page-heading"><div><span className="eyebrow">APPLICATION / {sections.find(s => s.id === section)?.label.toUpperCase()}</span><h1>{titleFor(section)}</h1><p>{descriptionFor(section)}</p></div><button onClick={() => setRevision(v => v + 1)}>Refresh</button></div>
         {notice && <div className="admin-notice" role="status"><AdminIcon name="check" size={18}/><span>{notice}</span><button className="text-button" onClick={() => setNotice("")}>Dismiss</button></div>}
-        {section === "overview" ? <Overview revision={revision} onRetry={() => setRevision(v => v + 1)} onNavigate={navigate}/> : <Directory key={section} section={section} revision={revision} onRetry={() => setRevision(v => v + 1)} onReview={review} onMembers={setMembersWorkspace} user={user}/>}
+        {section === "backup" ? <BackupPage user={user} revision={revision}/> : section === "overview" ? <Overview revision={revision} onRetry={() => setRevision(v => v + 1)} onNavigate={navigate}/> : <Directory key={section} section={section} revision={revision} onRetry={() => setRevision(v => v + 1)} onReview={review} onMembers={setMembersWorkspace} user={user}/>}
       </main>
     </div>
     {confirmation && <ConfirmDialog title={confirmation.title} confirmLabel={confirmation.label} busy={busy} error={error} onClose={() => setConfirmation(null)} onConfirm={confirmAction}><p>{confirmation.description}</p>{confirmation.warning && <p className="admin-confirm-warning">{confirmation.warning}</p>}</ConfirmDialog>}

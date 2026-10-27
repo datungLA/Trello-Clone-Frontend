@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import { ArrowLeft, Check, ClipboardList, Columns3, LayoutDashboard, LockKeyhole, Monitor, PanelsTopLeft, UsersRound } from "lucide-react";
+import { ArrowLeft, Check, ClipboardList, CloudUpload, Columns3, LayoutDashboard, LockKeyhole, Monitor, PanelsTopLeft, UsersRound } from "lucide-react";
 
 export function AdminIcon({ name, size = 20 }) {
-  const icons = { overview: LayoutDashboard, users: UsersRound, workspaces: PanelsTopLeft, boards: Columns3, audit: ClipboardList, lock: LockKeyhole, arrow: ArrowLeft, device: Monitor, check: Check };
+  const icons = { overview: LayoutDashboard, users: UsersRound, workspaces: PanelsTopLeft, boards: Columns3, audit: ClipboardList, backup: CloudUpload, lock: LockKeyhole, arrow: ArrowLeft, device: Monitor, check: Check };
   const LucideIcon = icons[name] || LayoutDashboard;
   return <LucideIcon size={size} strokeWidth={1.7} aria-hidden="true"/>;
 }
